@@ -12,4 +12,9 @@ export function getLLMClient(): LLMClient {
   return client
 }
 
-export type { LLMClient, GenerateFieldsInput } from './types'
+export type {
+  LLMClient,
+  GenerateFieldsInput,
+  GenerateChecklistInput,
+  ExecuteItemInput,
+} from './types'
