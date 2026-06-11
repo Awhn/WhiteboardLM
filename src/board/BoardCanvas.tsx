@@ -14,6 +14,7 @@ import {
 } from '@xyflow/react'
 import { useBoardStore } from './boardStore'
 import { useUIStore } from './uiStore'
+import { exportBoardToServer, serverSyncAvailable } from '../api/sync'
 import { WorkspaceNode, type WorkspaceNodeType } from '../workspace/WorkspaceNode'
 import { EDGE_TYPE_CONFIG } from '../edge/edgeConfig'
 import { EdgeInspector } from '../edge/EdgeInspector'
@@ -156,6 +157,17 @@ export function BoardCanvas() {
             >
               🕘 로그
             </button>
+            {serverSyncAvailable && (
+              <button
+                onClick={() => {
+                  exportBoardToServer().catch((e) => window.alert(String(e)))
+                }}
+                title="localStorage 보드 상태를 서버 DB로 이전"
+                className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100"
+              >
+                ☁️ 서버 저장
+              </button>
+            )}
           </div>
         </Panel>
 
