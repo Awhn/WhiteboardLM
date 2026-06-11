@@ -26,4 +26,6 @@ export interface ChecklistItem {
   assignee?: string
   comments: ChecklistComment[]
   activityLog: ActivityLogEntry[]
+  /** [permission] 예외 항목이 가리키는 context 작업공간 id (M14) */
+  relatedWorkspaceId?: string
 }

@@ -55,6 +55,27 @@ export function ChecklistItemRow({ item }: { item: ChecklistItem }) {
     }
   }
 
+  // M14: [permission] 항목 — 권한 부여 후 재개 또는 해당 엣지 비활성화
+  const handleGrantPermission = () => {
+    if (!item.relatedWorkspaceId) return
+    useBoardStore.getState().grantContextAccess(item.relatedWorkspaceId)
+    if (approveChecklistItem(item.id)) resumePointer()
+  }
+
+  const handleDisableEdges = () => {
+    const { edges, updateEdge, logBoard } = useBoardStore.getState()
+    const related = item.relatedWorkspaceId
+    if (!related) return
+    for (const e of edges) {
+      const connects =
+        (e.source === item.workspaceId && e.target === related) ||
+        (e.target === item.workspaceId && e.source === related)
+      if (connects && !e.disabled) updateEdge(e.id, { disabled: true })
+    }
+    logBoard(`[권한] 해당 엣지 비활성화 선택 — 「${item.title}」`)
+    if (approveChecklistItem(item.id)) resumePointer()
+  }
+
   const handleRestore = () => {
     const snapshot = useBoardStore
       .getState()
@@ -101,7 +122,23 @@ export function ChecklistItemRow({ item }: { item: ChecklistItem }) {
               </button>
             </>
           )}
-          {item.status === 'pending' && item.tag !== 'AI' && (
+          {item.status === 'pending' && item.tag === 'permission' && (
+            <>
+              <button
+                onClick={handleGrantPermission}
+                className="rounded bg-emerald-600 px-1.5 py-px text-[10px] font-medium text-white hover:bg-emerald-700"
+              >
+                권한 부여
+              </button>
+              <button
+                onClick={handleDisableEdges}
+                className="rounded bg-orange-500 px-1.5 py-px text-[10px] font-medium text-white hover:bg-orange-600"
+              >
+                엣지 비활성화
+              </button>
+            </>
+          )}
+          {item.status === 'pending' && item.tag !== 'AI' && item.tag !== 'permission' && (
             <button
               onClick={handleComplete}
               className="rounded bg-emerald-600 px-1.5 py-px text-[10px] font-medium text-white hover:bg-emerald-700"
@@ -121,9 +158,14 @@ export function ChecklistItemRow({ item }: { item: ChecklistItem }) {
         </span>
       </div>
 
+      {item.assignee && (
+        <p className="mt-0.5 text-[9px] text-slate-400">담당: {item.assignee}</p>
+      )}
+
       {lastComment && item.status === 'pending' && (
         <p className="mt-1 rounded bg-red-50 px-1.5 py-0.5 text-[10px] text-red-500">
-          반려 코멘트: {lastComment.text}
+          {item.tag === 'blocking' || item.tag === 'permission' ? '사유' : '반려 코멘트'}:{' '}
+          {lastComment.text}
         </p>
       )}
 

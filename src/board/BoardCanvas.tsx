@@ -1,18 +1,22 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import {
   Background,
   BackgroundVariant,
   Controls,
+  MarkerType,
   MiniMap,
   Panel,
   ReactFlow,
   type Connection,
   type Edge,
+  type EdgeChange,
   type NodeChange,
 } from '@xyflow/react'
 import { useBoardStore } from './boardStore'
 import { useUIStore } from './uiStore'
 import { WorkspaceNode, type WorkspaceNodeType } from '../workspace/WorkspaceNode'
+import { EDGE_TYPE_CONFIG } from '../edge/edgeConfig'
+import { EdgeInspector } from '../edge/EdgeInspector'
 
 const nodeTypes = { workspace: WorkspaceNode }
 
@@ -26,7 +30,9 @@ export function BoardCanvas() {
   const removeWorkspace = useBoardStore((s) => s.removeWorkspace)
   const selectWorkspace = useBoardStore((s) => s.selectWorkspace)
   const addEdge = useBoardStore((s) => s.addEdge)
+  const removeEdge = useBoardStore((s) => s.removeEdge)
   const toggleDrawer = useUIStore((s) => s.toggleDrawer)
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
 
   const nodes = useMemo<WorkspaceNodeType[]>(
     () =>
@@ -44,13 +50,27 @@ export function BoardCanvas() {
 
   const edges = useMemo<Edge[]>(
     () =>
-      storeEdges.map((e) => ({
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        label: e.type,
-      })),
-    [storeEdges],
+      storeEdges.map((e) => {
+        const cfg = EDGE_TYPE_CONFIG[e.type]
+        return {
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          selected: e.id === selectedEdgeId,
+          label: `${cfg.icon} ${cfg.label}${e.hopLimit === 2 ? ' · 2hop' : ''}${e.disabled ? ' (비활성)' : ''}`,
+          animated: !e.disabled && cfg.animated,
+          style: {
+            stroke: cfg.stroke,
+            strokeWidth: cfg.strokeWidth,
+            strokeDasharray: cfg.dash,
+            opacity: e.disabled ? 0.3 : 1,
+          },
+          labelStyle: { fontSize: 10, fill: e.disabled ? '#94a3b8' : '#475569' },
+          labelBgStyle: { fill: '#ffffff', fillOpacity: 0.85 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: cfg.stroke },
+        }
+      }),
+    [storeEdges, selectedEdgeId],
   )
 
   const onNodesChange = useCallback(
@@ -74,6 +94,22 @@ export function BoardCanvas() {
     [moveWorkspace, resizeWorkspace, removeWorkspace, selectWorkspace],
   )
 
+  const onEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      for (const change of changes) {
+        if (change.type === 'remove') {
+          removeEdge(change.id)
+          setSelectedEdgeId((cur) => (cur === change.id ? null : cur))
+        } else if (change.type === 'select') {
+          setSelectedEdgeId((cur) =>
+            change.selected ? change.id : cur === change.id ? null : cur,
+          )
+        }
+      }
+    },
+    [removeEdge],
+  )
+
   const onConnect = useCallback(
     (connection: Connection) => {
       if (connection.source && connection.target) {
@@ -90,6 +126,7 @@ export function BoardCanvas() {
         edges={edges}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         proOptions={{ hideAttribution: true }}
         deleteKeyCode={['Backspace', 'Delete']}
@@ -140,6 +177,10 @@ export function BoardCanvas() {
           </div>
         )}
       </ReactFlow>
+
+      {selectedEdgeId && (
+        <EdgeInspector edgeId={selectedEdgeId} onClose={() => setSelectedEdgeId(null)} />
+      )}
     </div>
   )
 }

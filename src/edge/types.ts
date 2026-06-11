@@ -12,5 +12,8 @@ export interface WorkspaceEdge {
   source: string
   target: string
   type: EdgeType
+  /** 컨텍스트가 이 엣지를 통해 전파되는 최대 단계 (1 또는 2) */
   hopLimit: 1 | 2
+  /** [권한] 예외 처리에서 "엣지 비활성화"를 선택하면 true — 컨텍스트 로딩에서 제외 */
+  disabled?: boolean
 }

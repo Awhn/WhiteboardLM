@@ -1,4 +1,5 @@
 import type { DynamicField, DynamicFieldType, WorkspaceType } from '../workspace/types'
+import { BlockedError } from './errors'
 import type {
   ExecuteItemInput,
   GenerateChecklistInput,
@@ -84,12 +85,25 @@ export class StubLLMClient implements LLMClient {
     return CHECKLIST_BY_TYPE[type](purpose)
   }
 
-  async executeChecklistItem({ title, purpose, comment }: ExecuteItemInput): Promise<string> {
+  async executeChecklistItem({
+    title,
+    purpose,
+    comment,
+    context,
+    toolResult,
+    blockResolved,
+  }: ExecuteItemInput): Promise<string> {
     await delay(700)
     if (title.includes('!error')) {
       throw new Error('스텁 오류 훅: 항목 제목에 "!error"가 포함되어 있습니다.')
     }
+    // M13 테스트 훅: "!block" 항목은 블로킹 예외가 해소되기 전까지 판단 불가
+    if (title.includes('!block') && !blockResolved) {
+      throw new BlockedError('스텁 블로킹 훅: 추가 정보 없이 진행 방향을 판단할 수 없습니다.')
+    }
     const rework = comment ? ` (반려 코멘트 반영: ${comment})` : ''
-    return `### ${title}\n\n「${purpose}」 목적에 따라 위 단계를 수행한 결과입니다${rework}. — 스텁 출력`
+    const tool = toolResult ? `\n\n> 도구 결과: ${toolResult}` : ''
+    const ctx = context ? `\n\n> 참조 컨텍스트:\n${context.slice(0, 400)}` : ''
+    return `### ${title}\n\n「${purpose}」 목적에 따라 위 단계를 수행한 결과입니다${rework}. — 스텁 출력${tool}${ctx}`
   }
 }

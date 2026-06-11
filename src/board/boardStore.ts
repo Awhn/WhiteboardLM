@@ -52,18 +52,26 @@ interface BoardState {
     workspaceId: string,
     items: { tag: ChecklistTag; title: string }[],
   ) => void
-  addChecklistItem: (workspaceId: string, title: string, tag: ChecklistTag) => void
+  addChecklistItem: (
+    workspaceId: string,
+    title: string,
+    tag: ChecklistTag,
+    options?: { relatedWorkspaceId?: string; assignee?: string; reason?: string },
+  ) => ChecklistItem
   /** 허용된 전이만 수행. 성공 여부 반환 */
   setChecklistItemStatus: (itemId: string, status: ChecklistStatus) => boolean
   appendItemActivity: (itemId: string, message: string) => void
   removeChecklistItem: (itemId: string) => void
 
   addEdge: (source: string, target: string, type?: EdgeType) => void
+  updateEdge: (id: string, patch: Partial<Omit<WorkspaceEdge, 'id'>>) => void
   removeEdge: (id: string) => void
 
   /** 포인터 이동. context 등 진입 불가 타입이면 거부하고 false 반환 */
   movePointer: (workspaceId: string | null) => boolean
-  setPointerStatus: (status: Pointer['status']) => void
+  setPointerStatus: (status: Pointer['status'], tool?: string | null) => void
+  /** context 작업공간에 포인터 읽기 권한 부여 (M14) */
+  grantContextAccess: (workspaceId: string) => void
 
   /** 보드 행동 로그에 한 줄 기록 */
   logBoard: (message: string) => void
@@ -187,27 +195,37 @@ export const useBoardStore = create<BoardState>()(
     get().logBoard(`체크리스트 생성: ${wsName} — ${items.length}개 항목`)
   },
 
-  addChecklistItem: (workspaceId, title, tag) =>
-    set((s) => ({
-      checklistItems: [
-        ...s.checklistItems,
-        {
-          id: newId('item'),
-          workspaceId,
-          title,
-          tag,
-          status: 'pending',
-          comments: [],
-          activityLog: [
+  addChecklistItem: (workspaceId, title, tag, options) => {
+    const isException = tag === 'blocking' || tag === 'permission'
+    const item: ChecklistItem = {
+      id: newId('item'),
+      workspaceId,
+      title,
+      tag,
+      status: 'pending',
+      assignee: options?.assignee,
+      relatedWorkspaceId: options?.relatedWorkspaceId,
+      comments: options?.reason
+        ? [
             {
-              id: newId('log'),
-              message: '수동으로 추가됨',
+              id: newId('comment'),
+              author: 'AI',
+              text: options.reason,
               createdAt: new Date().toISOString(),
             },
-          ],
+          ]
+        : [],
+      activityLog: [
+        {
+          id: newId('log'),
+          message: isException ? '예외 상황으로 자동 생성됨' : '수동으로 추가됨',
+          createdAt: new Date().toISOString(),
         },
       ],
-    })),
+    }
+    set((s) => ({ checklistItems: [...s.checklistItems, item] }))
+    return item
+  },
 
   setChecklistItemStatus: (itemId, status) => {
     const item = get().checklistItems.find((i) => i.id === itemId)
@@ -260,6 +278,11 @@ export const useBoardStore = create<BoardState>()(
       return { edges: [...s.edges, edge] }
     }),
 
+  updateEdge: (id, patch) =>
+    set((s) => ({
+      edges: s.edges.map((e) => (e.id === id ? { ...e, ...patch } : e)),
+    })),
+
   removeEdge: (id) => set((s) => ({ edges: s.edges.filter((e) => e.id !== id) })),
 
   movePointer: (workspaceId) => {
@@ -271,7 +294,18 @@ export const useBoardStore = create<BoardState>()(
     return true
   },
 
-  setPointerStatus: (status) => set((s) => ({ pointer: { ...s.pointer, status } })),
+  setPointerStatus: (status, tool = null) =>
+    set((s) => ({ pointer: { ...s.pointer, status, tool } })),
+
+  grantContextAccess: (workspaceId) => {
+    set((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === workspaceId ? { ...w, accessGranted: true } : w,
+      ),
+    }))
+    const name = get().workspaces.find((w) => w.id === workspaceId)?.name ?? workspaceId
+    get().logBoard(`권한 부여: 컨텍스트 작업공간 「${name}」 읽기 허용`)
+  },
 
   logBoard: (message) =>
     set((s) => ({
@@ -297,6 +331,24 @@ export const useBoardStore = create<BoardState>()(
     }
     set((s) => ({ snapshots: [...s.snapshots, snapshot] }))
     get().logBoard(`「${item.title}」 committed — 스냅샷 저장 (${ws.name})`)
+
+    // M12: 작업공간의 모든 항목이 committed되면 update 엣지로 결과 전파
+    const after = get()
+    const wsItems = after.checklistItems.filter((i) => i.workspaceId === ws.id)
+    if (wsItems.length > 0 && wsItems.every((i) => i.status === 'committed')) {
+      const outgoing = after.edges.filter(
+        (e) => e.source === ws.id && e.type === 'update' && !e.disabled,
+      )
+      for (const edge of outgoing) {
+        const target = after.workspaces.find((w) => w.id === edge.target)
+        if (!target) continue
+        const block = `📥 「${ws.name}」 작업 결과 반영:\n${ws.content}`
+        after.updateWorkspace(target.id, {
+          content: target.content ? `${target.content}\n\n${block}` : block,
+        })
+        get().logBoard(`update 엣지 전파: ${ws.name} → ${target.name}`)
+      }
+    }
     return true
   },
 

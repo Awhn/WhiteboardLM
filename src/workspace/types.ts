@@ -26,4 +26,6 @@ export interface Workspace {
   content: string
   position: { x: number; y: number }
   size: { width: number; height: number }
+  /** context 타입 전용: 포인터의 읽기 접근 허용 여부 (M14 [permission]) */
+  accessGranted?: boolean
 }

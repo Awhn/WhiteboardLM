@@ -19,6 +19,12 @@ export interface ExecuteItemInput {
   purpose: string
   /** 반려 재작업 시 사용자 코멘트 (M7) */
   comment?: string
+  /** 엣지 그래프에서 수집한 컨텍스트 (M11) */
+  context?: string
+  /** 도구 실행 결과 — 항목 실행에 앞서 도구가 호출된 경우 (M12) */
+  toolResult?: string
+  /** 같은 작업공간의 [blocking] 예외가 해소된 상태인지 (M13 스텁 훅 해제용) */
+  blockResolved?: boolean
 }
 
 /**

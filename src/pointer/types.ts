@@ -11,4 +11,6 @@ export type PointerStatus =
 export interface Pointer {
   workspaceId: string | null
   status: PointerStatus
+  /** tool_use 상태일 때 사용 중인 도구 id (M12) */
+  tool?: string | null
 }
