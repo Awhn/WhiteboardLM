@@ -87,15 +87,16 @@ Board
 - [x] 빈 보드 → 작업공간 추가 UX `6gmRFF988c6F9jgc`
 
 ### M3. 작업공간 타입 시스템 `6gmQW34vgCmCFcH6`
-- [ ] output / context / intermediate 구분 `6gmRFCr6HHhgF3G6`
-- [ ] 타입별 헤더 색상·아이콘 `6gmRFCxCGm627c3c`
-- [ ] 타입별 포인터 진입 가능 여부 `6gmRFF5M43xx7wm6`
+- [x] output / context / intermediate 구분 `6gmRFCr6HHhgF3G6`
+- [x] 타입별 헤더 색상·아이콘 `6gmRFCxCGm627c3c`
+- [x] 타입별 포인터 진입 가능 여부 `6gmRFF5M43xx7wm6`
 
 ### M4. 선언형 정의 패널 `6gmQW3734jCF23r6`
-- [ ] 고정 필드: 이름/타입/목적 요약 `6gmRFCvxGM3j8mGc`
+- [x] 고정 필드: 이름/타입/목적 요약 `6gmRFCvxGM3j8mGc`
 - [ ] Anthropic API: 목적 입력 → 동적 필드 자동 생성 `6gmRFCwh9C5CQRWc`
-- [ ] 동적 필드 렌더링 (text/select/multiline/number) `6gmRFF4GGWH2Gmjc`
-- [ ] 정의 완료 상태 표시 `6gmRFF6PCvmmF2X6`
+      — ⏸️ [blocking] API 키 미보유. LLMClient 추상화 + 스텁으로 흐름은 완성, 키 확보 시 `src/llm/index.ts` 팩토리에서 교체
+- [x] 동적 필드 렌더링 (text/select/multiline/number) `6gmRFF4GGWH2Gmjc`
+- [x] 정의 완료 상태 표시 `6gmRFF6PCvmmF2X6`
 
 ### M5. 체크리스트 자동 생성 `6gmQW385qH3CwW7c`
 - [ ] 정의 완료 → API 호출 → 체크리스트 생성 `6gmRFCvP5ccWh636`
