@@ -125,10 +125,10 @@ Board
 > 정의+체크리스트는 우측 사이드바 통합, 전체 체크리스트·행동 로그는 하단 드로어(별도 공간).
 
 ### M9. Phase 1 통합 테스트 `6gmQW3cQ25RF2vPc`
-- [ ] 작업공간 2~3개 전체 루프 검증 `6gmRFMW5hpcQXffc`
-- [ ] E2E 시나리오: 정의→체크리스트→포인터→staged/committed→되돌리기 `6gmRFMXhH86FQqRc`
-- [ ] 엣지케이스: 빈 정의·API 오류·필드 누락 `6gmRFMmHmVfhHpG6`
-- [ ] 기본 반응형 정비 `6gmRFMq42vwjM4Rc`
+- [x] 작업공간 2~3개 전체 루프 검증 `6gmRFMW5hpcQXffc`
+- [x] E2E 시나리오: 정의→체크리스트→포인터→staged/committed→되돌리기 `6gmRFMXhH86FQqRc` (Playwright e2e/phase1.spec.ts)
+- [x] 엣지케이스: 빈 정의·API 오류·필드 누락 `6gmRFMmHmVfhHpG6`
+- [x] 기본 반응형 정비 `6gmRFMq42vwjM4Rc`
 
 **의존성**: M1 → M2 → M3 → (M4 → M5) → M6 → M7 → M8 → M9.
 M3은 M2의 노드 컴포넌트에 종속. M7/M8은 강결합이므로 같은 세션에서 함께 다뤄도 좋다.
@@ -140,46 +140,47 @@ M3은 M2의 노드 컴포넌트에 종속. M7/M8은 강결합이므로 같은 �
 **목표**: 엣지 기반 컨텍스트 로딩, 도구 실행, 예외(블로킹/권한) 자동화, 백엔드 영속화.
 
 ### M10. 노드-엣지 컨텍스트 그래프 `6gmQW7h84q7xp2hc`
-- [ ] 엣지 타입(reference/source/update/validate) 커스터마이징·시각화 `6gmRFMVjrrQ7PhP6`
-- [ ] 포트 드래그 엣지 생성 UI `6gmRFMWg83PG9jM6`
-- [ ] 타입별 스타일(선 구분·이모티콘) `6gmRFMhfQ6XmqHJc`
-- [ ] hop 제한 설정 UI (1/2단계) `6gmRFMvR282J53Rc`
+- [x] 엣지 타입(reference/source/update/validate) 커스터마이징·시각화 `6gmRFMVjrrQ7PhP6`
+- [x] 포트 드래그 엣지 생성 UI `6gmRFMWg83PG9jM6` (+ 엣지 클릭 → 인스펙터)
+- [x] 타입별 스타일(선 구분·이모티콘) `6gmRFMhfQ6XmqHJc`
+- [x] hop 제한 설정 UI (1/2단계) `6gmRFMvR282J53Rc`
 
 ### M11. 컨텍스트 로딩 로직 `6gmQW7ffWcPcpjRc`
-- [ ] 포인터 기준 1-hop 노드의 선언형 정의 자동 로드 `6gmRFMRGPrh888mc`
-- [ ] reference: 정의만 로드 + 필요 시 내용 요청 `6gmRFMWxH52274mc`
-- [ ] source: 전체 내용 로드 `6gmRFMmcM44PRfjc`
-- [ ] context 타입: 엣지로만 연결, 포인터 진입 차단 `6gmRFMvmfCw9HvCc`
+- [x] 포인터 기준 1-hop 노드의 선언형 정의 자동 로드 `6gmRFMRGPrh888mc`
+- [x] reference: 정의만 로드 + 필요 시 내용 요청 `6gmRFMWxH52274mc`
+- [x] source: 전체 내용 로드 `6gmRFMmcM44PRfjc`
+- [x] context 타입: 엣지로만 연결, 포인터 진입 차단 `6gmRFMvmfCw9HvCc`
 
 ### M12. Agent 도구 실행 레이어 `6gmQW7jmJVMXq5H6`
-- [ ] 체크리스트 항목 실행 → 툴 호출 연동 `6gmRFMRRrmFg9vx6`
+- [x] 체크리스트 항목 실행 → 툴 호출 연동 `6gmRFMRRrmFg9vx6`
 - [ ] 1차 툴: 웹 검색 / 파일 읽기 / 코드 실행 `6gmRFMcWmMrv7qP6`
-- [ ] 포인터 tool_use 상태 + 도구 아이콘 `6gmRFMj7fr5vv69c`
-- [ ] update 엣지: 결과를 대상 작업공간에 반영 `6gmRFMvmQqh2WRmc`
+      — ⏸️ [blocking] 현재 스텁(src/agent/tools.ts). 실제 실행은 서버 프록시에 도구 엔드포인트 추가 후 교체
+- [x] 포인터 tool_use 상태 + 도구 아이콘 `6gmRFMj7fr5vv69c`
+- [x] update 엣지: 결과를 대상 작업공간에 반영 `6gmRFMvmQqh2WRmc`
 
 ### M13. [블로킹] 예외 자동 생성 `6gmQW7r5Wv2vHJv6`
-- [ ] 판단 불가 상황 감지 `6gmRFMQh95RP9W56`
-- [ ] [blocking] 항목 자동 생성 (제목+사유) `6gmRFMcVvX3Vr2Hc`
-- [ ] 포인터 waiting 전환 + 알림 `6gmRFMgFhpF2RQV6`
-- [ ] 해소 후 AI 재개 `6gmRFMm52QMG4MV6`
+- [x] 판단 불가 상황 감지 `6gmRFMQh95RP9W56` (BlockedError, 스텁 훅 "!block")
+- [x] [blocking] 항목 자동 생성 (제목+사유) `6gmRFMcVvX3Vr2Hc`
+- [x] 포인터 waiting 전환 + 알림 `6gmRFMgFhpF2RQV6` (행동 로그)
+- [x] 해소 후 AI 재개 `6gmRFMm52QMG4MV6`
 
 ### M14. [권한] 예외 자동 생성 `6gmQW7qCPhp44r6c`
-- [ ] context 작업공간 접근 권한 체크 `6gmRFMV7mRv5wX56`
-- [ ] [permission] 항목 자동 생성 + 담당자 자동 할당 `6gmRFVMQr9fV5qM6`
-- [ ] 권한 부여 후 재개 / 엣지 비활성화 선택 UI `6gmRFVWmMXRMjVg6`
-- [ ] 예외 항목도 버전 로그에 committed 기록 `6gmRFVfjwpvCcGPc`
+- [x] context 작업공간 접근 권한 체크 `6gmRFMV7mRv5wX56`
+- [x] [permission] 항목 자동 생성 + 담당자 자동 할당 `6gmRFVMQr9fV5qM6`
+- [x] 권한 부여 후 재개 / 엣지 비활성화 선택 UI `6gmRFVWmMXRMjVg6`
+- [x] 예외 항목도 버전 로그에 committed 기록 `6gmRFVfjwpvCcGPc`
 
 ### M15. 백엔드 API·DB `6gmQW7rxRhcVR5Rc`
-- [ ] FastAPI vs Next.js API Route 결정·설계 `6gmRFVVHXpHPF9j6`
-- [ ] PostgreSQL 스키마 5종 `6gmRFVWPh97C9c46`
-- [ ] localStorage 스냅샷 → DB 마이그레이션 `6gmRFVgj78rq8q6c`
-- [ ] Anthropic API 서버사이드 프록시 (키 보호) `6gmRFVp7GRfmXJ36`
+- [x] FastAPI vs Next.js API Route 결정·설계 `6gmRFVVHXpHPF9j6` → **FastAPI 채택** (backend/README.md)
+- [x] PostgreSQL 스키마 5종 `6gmRFVWPh97C9c46`
+- [x] localStorage 스냅샷 → DB 마이그레이션 `6gmRFVgj78rq8q6c` (PUT /api/boards/{id} + ☁️ 서버 저장 버튼)
+- [x] Anthropic API 서버사이드 프록시 (키 보호) `6gmRFVp7GRfmXJ36` (키 미설정 시 503 → 스텁 폴백)
 
 ### M16. Phase 2 통합 테스트 `6gmQW83m9PWGXC96`
-- [ ] reference/source 컨텍스트 반영 검증 `6gmRFVQ46f9cq8Rc`
-- [ ] 도구 호출·결과 처리 확인 `6gmRFVc78jG6W7fc`
-- [ ] 블로킹/권한 예외 전체 흐름 `6gmRFVgXxm83mfp6`
-- [ ] DB 저장/불러오기 안정성 `6gmRFVmCR2fXjP4c`
+- [x] reference/source 컨텍스트 반영 검증 `6gmRFVQ46f9cq8Rc` (e2e/phase2.spec.ts)
+- [x] 도구 호출·결과 처리 확인 `6gmRFVc78jG6W7fc`
+- [x] 블로킹/권한 예외 전체 흐름 `6gmRFVgXxm83mfp6`
+- [x] DB 저장/불러오기 안정성 `6gmRFVmCR2fXjP4c` (backend/tests/test_api.py)
 
 **의존성**: M10 → M11 → M12 → (M13, M14 병렬) → M16. M15는 M12 이전 어느 시점이든 가능하나, **도구 실행(코드 실행 툴)은 서버 필요**이므로 실질적으로 M15 → M12 순서를 권장. 즉 M10 → M11 → M15 → M12 → M13/M14 → M16.
 
