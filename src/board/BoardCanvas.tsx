@@ -131,6 +131,7 @@ export function BoardCanvas() {
         onConnect={onConnect}
         proOptions={{ hideAttribution: true }}
         deleteKeyCode={['Backspace', 'Delete']}
+        zoomOnDoubleClick={false}
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1.5} />
         <Controls />

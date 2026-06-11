@@ -50,7 +50,7 @@ test('M11+M12: source 컨텍스트 로드 + 도구 실행(tool_use)', async ({ p
   await runPointerOnNode(page, 0)
   await waitForPointer(page, /대기 중/)
   // M12: "자료" 키워드 항목은 web_search 도구를 거친다
-  await expect(page.locator('.react-flow__node').nth(0).locator('pre')).toContainText(
+  await expect(page.locator('.react-flow__node').nth(0).getByTestId('content-view')).toContainText(
     '🔍 웹 검색 결과',
   )
 
@@ -64,7 +64,7 @@ test('M11+M12: source 컨텍스트 로드 + 도구 실행(tool_use)', async ({ p
   // B에서 포인터 실행 → A의 전체 내용이 컨텍스트로 반영
   await runPointerOnNode(page, 1)
   await waitForPointer(page, /대기 중/)
-  const bContent = await page.locator('.react-flow__node').nth(1).locator('pre').innerText()
+  const bContent = await page.locator('.react-flow__node').nth(1).getByTestId('content-view').innerText()
   expect(bContent).toContain('참조 컨텍스트')
   expect(bContent).toContain('자료실')
   expect(bContent).toContain('[전체 내용]')
@@ -78,7 +78,7 @@ test('M11: reference 타입은 정의만 로드', async ({ page }) => {
   // 기본 타입이 reference — 그대로 실행
   await runPointerOnNode(page, 1)
   await waitForPointer(page, /대기 중/)
-  const content = await page.locator('.react-flow__node').nth(1).locator('pre').innerText()
+  const content = await page.locator('.react-flow__node').nth(1).getByTestId('content-view').innerText()
   expect(content).toContain('[정의만 로드]')
   expect(content).toContain('참고 정의')
   expect(content).not.toContain('[전체 내용]')
@@ -145,7 +145,7 @@ test('M14: context 접근 → [permission] 자동 생성 → 권한 부여 후 �
   await permRow.getByRole('button', { name: '권한 부여' }).click()
   await waitForPointer(page, /대기 중/)
   await expect(permRow).toHaveAttribute('data-status', 'committed')
-  const content = await page.locator('.react-flow__node').nth(0).locator('pre').innerText()
+  const content = await page.locator('.react-flow__node').nth(0).getByTestId('content-view').innerText()
   expect(content).toContain('사내 자료')
 })
 
@@ -164,7 +164,7 @@ test('M14: 권한 대신 엣지 비활성화 선택', async ({ page }) => {
   // 예외 항목도 committed로 기록 (버전 로그)
   await expect(permRow).toHaveAttribute('data-status', 'committed')
   await waitForPointer(page, /대기 중/)
-  const content = await page.locator('.react-flow__node').nth(0).locator('pre').innerText()
+  const content = await page.locator('.react-flow__node').nth(0).getByTestId('content-view').innerText()
   expect(content).not.toContain('비공개 자료')
 })
 
@@ -197,7 +197,7 @@ test('M12: update 엣지 — 전체 committed 시 대상 작업공간에 결과 
   }
 
   // 대상(최종본)에 결과가 반영됨
-  await expect(page.locator('.react-flow__node').nth(1).locator('pre')).toContainText(
+  await expect(page.locator('.react-flow__node').nth(1).getByTestId('content-view')).toContainText(
     '「초안」 작업 결과 반영',
   )
 })

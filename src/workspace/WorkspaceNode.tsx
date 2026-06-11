@@ -1,21 +1,38 @@
+import { useState } from 'react'
 import { Handle, NodeResizer, Position, type Node, type NodeProps } from '@xyflow/react'
 import type { Workspace } from './types'
 import { WORKSPACE_TYPE_CONFIG, canPointerEnter } from './typeConfig'
 import { isDeclarationComplete } from './declaration'
+import { WorkspaceContent } from './WorkspaceContent'
 import { PointerBadge } from '../pointer/PointerBadge'
 import { runPointerAt } from '../pointer/runner'
+import { useBoardStore } from '../board/boardStore'
+import { POINTER_STATUS_CONFIG } from '../pointer/statusConfig'
 
 export type WorkspaceNodeType = Node<{ workspace: Workspace }, 'workspace'>
 
 /**
  * 보드 위의 작업공간 노드 윈도우 (드래그 이동 + 선택 시 리사이즈).
- * WYSIWYG 원칙: 본문에는 작업 결과 콘텐츠만 표시한다.
+ * WYSIWYG 원칙: 본문에는 작업 결과 콘텐츠만 표시하며, AI와 사용자가 함께
+ * 작성·편집한다 (더블클릭/✏️ → 마크다운·텍스트 에디터).
  * 정의·체크리스트 등 메타 작업은 우측 사이드바에서 수행.
  */
 export function WorkspaceNode({ data, selected }: NodeProps<WorkspaceNodeType>) {
   const ws = data.workspace
   const config = WORKSPACE_TYPE_CONFIG[ws.type]
   const complete = isDeclarationComplete(ws)
+  const [editing, setEditing] = useState(false)
+
+  // 포인터가 이 작업공간에서 실행 중이면 동시 수정 충돌을 막기 위해 편집 잠금
+  const pointerBusy = useBoardStore(
+    (s) =>
+      s.pointer.workspaceId === ws.id && POINTER_STATUS_CONFIG[s.pointer.status].active,
+  )
+
+  const handleEditingChange = (next: boolean) => {
+    if (next && pointerBusy) return
+    setEditing(next)
+  }
 
   return (
     <div className="relative h-full">
@@ -48,6 +65,24 @@ export function WorkspaceNode({ data, selected }: NodeProps<WorkspaceNodeType>) 
           >
             {config.icon} {config.label}
           </span>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              handleEditingChange(!editing)
+            }}
+            disabled={pointerBusy}
+            title={
+              pointerBusy
+                ? 'AI 작업 중에는 편집할 수 없습니다'
+                : editing
+                  ? '편집 종료'
+                  : '콘텐츠 직접 편집'
+            }
+            aria-label="콘텐츠 편집"
+            className="nodrag shrink-0 rounded px-1 text-xs hover:bg-white/60 disabled:opacity-40"
+          >
+            ✏️
+          </button>
           {canPointerEnter(ws.type) && (
             <button
               onClick={(e) => {
@@ -63,16 +98,11 @@ export function WorkspaceNode({ data, selected }: NodeProps<WorkspaceNodeType>) 
           )}
         </header>
 
-        <div className="nodrag nowheel flex-1 overflow-auto p-3 text-xs leading-relaxed text-slate-600">
-          {ws.content ? (
-            <pre className="whitespace-pre-wrap font-sans">{ws.content}</pre>
-          ) : (
-            <span className="italic text-slate-400">
-              아직 콘텐츠가 없습니다. 정의를 완료하고 포인터를 이동하면 결과가 여기에
-              기록됩니다.
-            </span>
-          )}
-        </div>
+        <WorkspaceContent
+          workspace={ws}
+          editing={editing}
+          onEditingChange={handleEditingChange}
+        />
 
         <Handle type="target" position={Position.Left} className="!h-3 !w-3 !bg-slate-400" />
         <Handle type="source" position={Position.Right} className="!h-3 !w-3 !bg-slate-400" />

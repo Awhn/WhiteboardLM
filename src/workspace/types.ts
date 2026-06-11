@@ -18,12 +18,17 @@ export interface Declaration {
   dynamicFields: DynamicField[]
 }
 
+/** 작업공간 콘텐츠 형식 — 마크다운(기본) 또는 일반 텍스트 */
+export type ContentFormat = 'markdown' | 'plain'
+
 export interface Workspace {
   id: string
   name: string
   type: WorkspaceType
   declaration: Declaration
   content: string
+  /** 생략 시 markdown으로 취급 */
+  contentFormat?: ContentFormat
   position: { x: number; y: number }
   size: { width: number; height: number }
   /** context 타입 전용: 포인터의 읽기 접근 허용 여부 (M14 [permission]) */

@@ -36,7 +36,7 @@ test('전체 루프: 정의 → 체크리스트 → 포인터 → staged/committ
   await page.getByRole('button', { name: '포인터 이동' }).click()
   await waitForPointer(page, /대기 중/)
   expect(await page.locator('aside li[data-status="staged"]').count()).toBeGreaterThan(0)
-  await expect(page.locator('.react-flow__node pre')).toContainText('스텁 출력')
+  await expect(page.locator('.react-flow__node [data-testid="content-view"]')).toContainText('스텁 출력')
 
   // 노드(WYSIWYG)에는 체크리스트가 렌더링되지 않아야 함
   expect(await page.locator('.react-flow__node li').count()).toBe(0)
@@ -72,7 +72,7 @@ test('전체 루프: 정의 → 체크리스트 → 포인터 → staged/committ
 
   // 되돌리기: 첫 committed 시점으로 → 이후 committed 항목은 pending 전환
   // (스냅샷은 "승인 시점"의 content를 캡처하므로 content는 그 시점 그대로 복원된다)
-  const contentBefore = await page.locator('.react-flow__node pre').innerText()
+  const contentBefore = await page.locator('.react-flow__node [data-testid="content-view"]').innerText()
   page.on('dialog', (d) => void d.accept())
   await page
     .locator('aside li[data-status="committed"]')
@@ -81,7 +81,7 @@ test('전체 루프: 정의 → 체크리스트 → 포인터 → staged/committ
     .click()
   await expect(page.locator('aside li[data-status="committed"]')).toHaveCount(1)
   expect(await page.locator('aside li[data-status="pending"]').count()).toBe(total - 1)
-  const contentAfter = await page.locator('.react-flow__node pre').innerText()
+  const contentAfter = await page.locator('.react-flow__node [data-testid="content-view"]').innerText()
   expect(contentAfter.length).toBeLessThanOrEqual(contentBefore.length)
 })
 
@@ -98,7 +98,7 @@ test('반려 → 코멘트 → AI 재작업에 코멘트 반영', async ({ page 
   await stagedRow.getByRole('button', { name: '반려 확정' }).click()
 
   await waitForPointer(page, /대기 중/)
-  await expect(page.locator('.react-flow__node pre')).toContainText('목차를 더 짧게')
+  await expect(page.locator('.react-flow__node [data-testid="content-view"]')).toContainText('목차를 더 짧게')
 })
 
 test('작업공간 2개: 엣지 연결 + 독립 체크리스트 + 전체 체크리스트 드로어', async ({
