@@ -33,4 +33,6 @@ export interface Workspace {
   size: { width: number; height: number }
   /** context 타입 전용: 포인터의 읽기 접근 허용 여부 (M14 [permission]) */
   accessGranted?: boolean
+  /** 외부에서 가져온 파일 (있으면 본문에 파일 뷰어를 표시) */
+  attachment?: import('../files/types').FileAttachment
 }

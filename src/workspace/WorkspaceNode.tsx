@@ -4,6 +4,7 @@ import type { Workspace } from './types'
 import { WORKSPACE_TYPE_CONFIG, canPointerEnter } from './typeConfig'
 import { isDeclarationComplete } from './declaration'
 import { WorkspaceContent } from './WorkspaceContent'
+import { FileViewer } from '../files/FileViewer'
 import { PointerBadge } from '../pointer/PointerBadge'
 import { runPointerAt } from '../pointer/runner'
 import { useBoardStore } from '../board/boardStore'
@@ -65,6 +66,7 @@ export function WorkspaceNode({ data, selected }: NodeProps<WorkspaceNodeType>) 
           >
             {config.icon} {config.label}
           </span>
+          {!ws.attachment && (
           <button
             onClick={(e) => {
               e.stopPropagation()
@@ -83,6 +85,7 @@ export function WorkspaceNode({ data, selected }: NodeProps<WorkspaceNodeType>) 
           >
             ✏️
           </button>
+          )}
           {canPointerEnter(ws.type) && (
             <button
               onClick={(e) => {
@@ -98,11 +101,15 @@ export function WorkspaceNode({ data, selected }: NodeProps<WorkspaceNodeType>) 
           )}
         </header>
 
-        <WorkspaceContent
-          workspace={ws}
-          editing={editing}
-          onEditingChange={handleEditingChange}
-        />
+        {ws.attachment ? (
+          <FileViewer attachment={ws.attachment} />
+        ) : (
+          <WorkspaceContent
+            workspace={ws}
+            editing={editing}
+            onEditingChange={handleEditingChange}
+          />
+        )}
 
         <Handle type="target" position={Position.Left} className="!h-3 !w-3 !bg-slate-400" />
         <Handle type="source" position={Position.Right} className="!h-3 !w-3 !bg-slate-400" />

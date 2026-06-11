@@ -32,9 +32,11 @@ const declarationSummary = (ws: Workspace): string => {
 /** 엣지 타입별 로딩 규칙 (M11) */
 const loadDetail = (edgeType: WorkspaceEdge['type'], ws: Workspace): string => {
   switch (edgeType) {
-    case 'source':
-      // source: 전체 내용 로드
+    case 'source': {
+      // source: 전체 내용 로드 — 첨부 파일 노드는 텍스트 추출본을 읽는다
+      if (ws.attachment) return `[전체 내용 — 첨부 파일]\n${ws.attachment.textContent}`
       return ws.content ? `[전체 내용]\n${ws.content}` : '[전체 내용] (비어 있음)'
+    }
     case 'reference':
       // reference: 선언형 정의만 로드. 필요 시 내용 추가 요청 가능 표시
       return `[정의만 로드] ${declarationSummary(ws)} (필요 시 내용 추가 요청 가능)`

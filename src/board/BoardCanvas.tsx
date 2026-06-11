@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState, type DragEvent } from 'react'
 import {
   Background,
   BackgroundVariant,
@@ -7,6 +7,7 @@ import {
   MiniMap,
   Panel,
   ReactFlow,
+  useReactFlow,
   type Connection,
   type Edge,
   type EdgeChange,
@@ -18,6 +19,8 @@ import { exportBoardToServer, serverSyncAvailable } from '../api/sync'
 import { WorkspaceNode, type WorkspaceNodeType } from '../workspace/WorkspaceNode'
 import { EDGE_TYPE_CONFIG } from '../edge/edgeConfig'
 import { EdgeInspector } from '../edge/EdgeInspector'
+import { importFilesToBoard } from '../files/importFiles'
+import { ACCEPT_ATTRIBUTE, SUPPORTED_LABEL } from '../files/registry'
 
 const nodeTypes = { workspace: WorkspaceNode }
 
@@ -34,6 +37,31 @@ export function BoardCanvas() {
   const removeEdge = useBoardStore((s) => s.removeEdge)
   const toggleDrawer = useUIStore((s) => s.toggleDrawer)
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
+  const [dropActive, setDropActive] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const { screenToFlowPosition } = useReactFlow()
+
+  const handleImport = useCallback(
+    async (files: Iterable<File>, position?: { x: number; y: number }) => {
+      const { errors } = await importFilesToBoard(files, position)
+      if (errors.length > 0) window.alert(errors.join('\n'))
+    },
+    [],
+  )
+
+  // Padlet 스타일: 파일을 캔버스에 드래그&드롭하면 그 위치에 컨텍스트 노드 생성
+  const onDrop = useCallback(
+    (e: DragEvent) => {
+      e.preventDefault()
+      setDropActive(false)
+      if (e.dataTransfer.files.length === 0) return
+      void handleImport(
+        e.dataTransfer.files,
+        screenToFlowPosition({ x: e.clientX, y: e.clientY }),
+      )
+    },
+    [handleImport, screenToFlowPosition],
+  )
 
   const nodes = useMemo<WorkspaceNodeType[]>(
     () =>
@@ -121,7 +149,19 @@ export function BoardCanvas() {
   )
 
   return (
-    <div className="relative h-full w-full">
+    <div
+      className="relative h-full w-full"
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes('Files')) {
+          e.preventDefault()
+          setDropActive(true)
+        }
+      }}
+      onDragLeave={(e) => {
+        if (e.currentTarget === e.target) setDropActive(false)
+      }}
+      onDrop={onDrop}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -146,6 +186,25 @@ export function BoardCanvas() {
             >
               + 작업공간 추가
             </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              title={`파일을 컨텍스트 노드로 가져오기 (지원: ${SUPPORTED_LABEL}) — 캔버스에 드래그&드롭도 가능`}
+              className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100"
+            >
+              📎 파일 추가
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={ACCEPT_ATTRIBUTE}
+              multiple
+              className="hidden"
+              data-testid="file-input"
+              onChange={(e) => {
+                if (e.target.files) void handleImport(e.target.files)
+                e.target.value = ''
+              }}
+            />
             <button
               onClick={() => toggleDrawer('checklist')}
               className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100"
@@ -193,6 +252,14 @@ export function BoardCanvas() {
 
       {selectedEdgeId && (
         <EdgeInspector edgeId={selectedEdgeId} onClose={() => setSelectedEdgeId(null)} />
+      )}
+
+      {dropActive && (
+        <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center border-4 border-dashed border-blue-400 bg-blue-50/60">
+          <p className="rounded-lg bg-white px-6 py-3 text-sm font-semibold text-blue-600 shadow">
+            📎 여기에 놓으면 컨텍스트 작업공간으로 추가됩니다 ({SUPPORTED_LABEL})
+          </p>
+        </div>
       )}
     </div>
   )

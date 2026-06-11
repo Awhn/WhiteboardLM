@@ -1,0 +1,126 @@
+import { expect, test } from '@playwright/test'
+import { connectNodes, defineWorkspace, generateChecklist, runPointerOnNode, waitForPointer } from './helpers'
+
+/**
+ * 외부 파일 가져오기 (Padlet 스타일) — 파일은 기본적으로 context 타입
+ * 작업공간 노드가 되며, 본문에 간단한 파일 뷰어가 표시된다.
+ */
+
+const CSV_FILE = {
+  name: 'members.csv',
+  mimeType: 'text/csv',
+  buffer: Buffer.from('이름,역할\n민수,개발\n지영,디자인\n현우,기획\n'),
+}
+
+// 최소 유효 PDF (한 페이지짜리 빈 문서)
+const PDF_BYTES = `%PDF-1.4
+1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
+2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
+3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj
+xref
+0 4
+0000000000 65535 f
+trailer<</Size 4/Root 1 0 R>>
+startxref
+0
+%%EOF`
+
+test.beforeEach(async ({ page }) => {
+  await page.goto('/')
+  await page.evaluate(() => localStorage.clear())
+  await page.reload()
+})
+
+test('📎 버튼으로 CSV 가져오기 → 컨텍스트 노드 + 테이블 뷰어 + 영속화', async ({
+  page,
+}) => {
+  await page.getByTestId('file-input').setInputFiles(CSV_FILE)
+
+  const node = page.locator('.react-flow__node').first()
+  await expect(node).toContainText('members.csv')
+  await expect(node).toContainText('컨텍스트') // 기본 context 타입
+  // 테이블 뷰어: 헤더 + 데이터 행
+  await expect(node.locator('th')).toHaveCount(2)
+  await expect(node.locator('table')).toContainText('민수')
+  // 파일 노드에는 콘텐츠 편집 버튼이 없음
+  await expect(node.getByRole('button', { name: '콘텐츠 편집' })).toHaveCount(0)
+
+  // 새로고침 후에도 유지
+  await page.reload()
+  await expect(page.locator('.react-flow__node table')).toContainText('지영')
+})
+
+test('PDF 가져오기 → 내장 뷰어(iframe) 표시', async ({ page }) => {
+  await page
+    .getByTestId('file-input')
+    .setInputFiles({ name: 'doc.pdf', mimeType: 'application/pdf', buffer: Buffer.from(PDF_BYTES) })
+
+  const node = page.locator('.react-flow__node').first()
+  await expect(node).toContainText('doc.pdf')
+  await expect(node.getByTestId('pdf-viewer')).toHaveCount(1)
+})
+
+test('드래그&드롭으로 캔버스에 파일 추가', async ({ page }) => {
+  // DataTransfer를 만들어 drop 이벤트 디스패치
+  const dataTransfer = await page.evaluateHandle(
+    ([name, content]) => {
+      const dt = new DataTransfer()
+      dt.items.add(new File([content], name, { type: 'text/csv' }))
+      return dt
+    },
+    ['dropped.csv', '항목,값\nA,1\nB,2\n'] as const,
+  )
+  await page.dispatchEvent('.react-flow', 'drop', { dataTransfer })
+
+  const node = page.locator('.react-flow__node').first()
+  await expect(node).toContainText('dropped.csv')
+  await expect(node.locator('table')).toContainText('항목')
+
+  // 행동 로그에 기록
+  await page.getByRole('button', { name: '🕘 로그' }).click()
+  await expect(page.getByText(/파일 가져오기: .*dropped\.csv/)).toBeVisible()
+})
+
+test('지원하지 않는 형식은 안내 후 무시', async ({ page }) => {
+  const dialogs: string[] = []
+  page.on('dialog', (d) => {
+    dialogs.push(d.message())
+    void d.accept()
+  })
+  await page
+    .getByTestId('file-input')
+    .setInputFiles({ name: 'data.xyz', mimeType: 'application/octet-stream', buffer: Buffer.from('?') })
+
+  await expect.poll(() => dialogs.length).toBeGreaterThan(0)
+  expect(dialogs[0]).toContain('지원하지 않는 형식')
+  await expect(page.locator('.react-flow__node')).toHaveCount(0)
+})
+
+test('source 엣지로 연결된 CSV 내용이 AI 컨텍스트로 로드', async ({ page }) => {
+  // 작업 노드 + CSV 컨텍스트 노드
+  await defineWorkspace(page, '분석 리포트', '멤버 데이터 분석')
+  await generateChecklist(page)
+  await page.getByTestId('file-input').setInputFiles(CSV_FILE)
+
+  await connectNodes(page, 0, 1)
+  // 엣지를 source로 변경
+  await page.locator('.react-flow__edge').first().click({ force: true })
+  await page.getByRole('button', { name: '📥 소스' }).click()
+
+  await runPointerOnNode(page, 0)
+  await waitForPointer(page, /대기 중/)
+  // 권한 예외([permission]) → 권한 부여 후 재개
+  await page.locator('.react-flow__node').nth(0).click()
+  const permRow = page.locator('aside li', { hasText: '접근 권한 필요' })
+  await expect(permRow).toHaveCount(1)
+  await permRow.getByRole('button', { name: '권한 부여' }).click()
+  await waitForPointer(page, /대기 중/)
+
+  const content = await page
+    .locator('.react-flow__node')
+    .nth(0)
+    .getByTestId('content-view')
+    .innerText()
+  expect(content).toContain('members.csv')
+  expect(content).toContain('첨부 파일')
+})

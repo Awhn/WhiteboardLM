@@ -38,7 +38,7 @@ interface BoardState {
   boardLog: ActivityLogEntry[]
   selectedWorkspaceId: string | null
 
-  addWorkspace: (partial?: Partial<Pick<Workspace, 'name' | 'type' | 'position'>>) => Workspace
+  addWorkspace: (partial?: Partial<Omit<Workspace, 'id'>>) => Workspace
   updateWorkspace: (id: string, patch: Partial<Workspace>) => void
   updateDeclaration: (id: string, patch: Partial<Declaration>) => void
   setDynamicFieldValue: (id: string, fieldId: string, value: string) => void
@@ -97,15 +97,16 @@ export const useBoardStore = create<BoardState>()(
   addWorkspace: (partial) => {
     const count = get().workspaces.length
     const workspace: Workspace = {
+      declaration: { purpose: '', dynamicFields: [] },
+      content: '',
+      size: { ...DEFAULT_SIZE },
+      ...partial,
       id: newId('ws'),
       name: partial?.name ?? `작업공간 ${count + 1}`,
       type: partial?.type ?? 'intermediate',
-      declaration: { purpose: '', dynamicFields: [] },
-      content: '',
       // 새 작업공간이 기존 노드와 겹치지 않도록 가로로 펼쳐 배치
       position:
         partial?.position ?? { x: 80 + count * (DEFAULT_SIZE.width + 60), y: 80 + count * 40 },
-      size: { ...DEFAULT_SIZE },
     }
     set((s) => ({ workspaces: [...s.workspaces, workspace] }))
     get().logBoard(`작업공간 추가: ${workspace.name}`)

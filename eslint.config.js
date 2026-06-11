@@ -19,4 +19,11 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // 파일 포맷 핸들러는 파서+뷰어를 한 모듈에 묶는 패턴 (fast refresh 예외 허용)
+    files: ['src/files/handlers/*.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])
