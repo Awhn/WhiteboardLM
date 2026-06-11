@@ -7,9 +7,14 @@
 
 - `app/models.py` — PostgreSQL 스키마 5종: Board / Workspace / Edge / ChecklistItem / Snapshot
 - `app/main.py` — 보드 상태 import(`PUT /api/boards/{id}`, localStorage → DB 이전) / export(`GET`)
-- `app/llm.py` — Anthropic API 서버사이드 프록시 (`POST /api/llm/{dynamic-fields,checklist,execute}`)
-  - 모델: `claude-opus-4-8` (`ANTHROPIC_MODEL`로 변경 가능)
-  - `ANTHROPIC_API_KEY` 미설정 시 503 → 프런트엔드는 스텁 LLM으로 폴백
+- `app/llm.py` — **LiteLLM 기반 멀티 프로바이더** 프록시 (`POST /api/llm/{dynamic-fields,checklist,execute}`)
+  - `LLM_MODEL` env로 선택: `anthropic/claude-opus-4-8`(기본) · `openai/gpt-…` · `gemini/gemini-…`
+  - 선택된 프로바이더의 키 env(`ANTHROPIC_API_KEY`/`OPENAI_API_KEY`/`GEMINI_API_KEY`) 미설정 시
+    503 → 프런트엔드는 스텁 LLM으로 폴백
+- `app/tools.py` — 서버 도구 레지스트리 (OpenAI 스타일 function calling, LiteLLM이 전 프로바이더 정규화)
+  - 1차 도구: `run_python` (subprocess, 10초 타임아웃 — 운영 배포 시 컨테이너 격리 필요)
+  - 새 도구 = `@tool` 데코레이터 함수 추가
+  - `/api/llm/execute`가 도구 루프(최대 5회)를 돌고 `toolTrace`를 함께 반환
 
 ## 실행
 

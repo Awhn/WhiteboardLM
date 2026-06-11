@@ -179,7 +179,7 @@ def checklist(req: GenerateChecklistRequest) -> list[str]:
 
 @app.post("/api/llm/execute")
 def execute(req: ExecuteItemRequest) -> dict:
-    result = llm.execute_item(
+    result, tool_trace = llm.execute_item(
         req.title, req.workspaceName, req.purpose, req.comment, req.context, req.toolResult
     )
-    return {"result": result}
+    return {"result": result, "toolTrace": tool_trace}

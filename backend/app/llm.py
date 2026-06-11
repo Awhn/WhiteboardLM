@@ -1,58 +1,90 @@
-"""Anthropic API 서버사이드 프록시 (M15) — 클라이언트의 키 노출을 막는다.
+"""LLM 서버사이드 프록시 (M15) — LiteLLM 기반 멀티 프로바이더.
 
-ANTHROPIC_API_KEY가 없으면 503을 반환하고, 프런트엔드는 스텁 LLM으로 폴백한다.
-비스트리밍 messages.create 사용 (생성물이 짧아 스트리밍 불필요).
+LLM_MODEL env로 프로바이더/모델 선택 (LiteLLM 모델 문자열):
+  anthropic/claude-opus-4-8 (기본) · openai/gpt-5.2 · gemini/gemini-3-pro 등
+해당 프로바이더의 API 키 env가 없으면 503을 반환하고, 프런트엔드는 스텁 LLM으로 폴백한다.
+
+도구 호출은 LiteLLM이 정규화하는 OpenAI 스타일 function calling을 사용해
+프로바이더와 무관하게 동일한 루프로 동작한다 (tools.py 레지스트리).
 """
 
 import json
 import os
+import re
 
-import anthropic
+import litellm
 from fastapi import HTTPException
 
-MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-8")
+from .tools import TOOL_SPECS, run_tool
 
-_client: anthropic.Anthropic | None = None
+DEFAULT_MODEL = "anthropic/claude-opus-4-8"
+MAX_TOOL_ITERATIONS = 5
+
+# LiteLLM 프로바이더 → 필요한 API 키 env
+PROVIDER_KEY_ENV = {
+    "anthropic": "ANTHROPIC_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+    "vertex_ai": "GOOGLE_APPLICATION_CREDENTIALS",
+    "azure": "AZURE_API_KEY",
+}
 
 
-def get_client() -> anthropic.Anthropic:
-    global _client
-    if not os.environ.get("ANTHROPIC_API_KEY"):
+def current_model() -> str:
+    # 구버전 env(ANTHROPIC_MODEL) 호환
+    legacy = os.environ.get("ANTHROPIC_MODEL")
+    return os.environ.get("LLM_MODEL") or (f"anthropic/{legacy}" if legacy else DEFAULT_MODEL)
+
+
+def ensure_provider_key() -> str:
+    """선택된 모델의 프로바이더 키가 없으면 503 → 프런트 스텁 폴백."""
+    model = current_model()
+    try:
+        _, provider, *_ = litellm.get_llm_provider(model)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"알 수 없는 모델 '{model}': {e}") from e
+    key_env = PROVIDER_KEY_ENV.get(provider)
+    if key_env and not os.environ.get(key_env):
         raise HTTPException(
             status_code=503,
-            detail="ANTHROPIC_API_KEY가 설정되지 않았습니다. 프런트엔드 스텁으로 폴백하세요.",
+            detail=f"{key_env}가 설정되지 않았습니다 (모델: {model}). 프런트엔드 스텁으로 폴백하세요.",
         )
-    if _client is None:
-        _client = anthropic.Anthropic()
-    return _client
+    return model
 
 
-def _text(response: anthropic.types.Message) -> str:
-    if response.stop_reason == "refusal":
-        raise HTTPException(status_code=502, detail="모델이 요청을 거부했습니다.")
-    return "".join(b.text for b in response.content if b.type == "text")
+def _completion(messages: list[dict], **kwargs) -> litellm.ModelResponse:
+    return litellm.completion(model=current_model(), messages=messages, **kwargs)
+
+
+def _strip_fences(text: str) -> str:
+    """일부 모델이 JSON을 코드 펜스로 감싸는 경우 대비."""
+    match = re.search(r"```(?:json)?\s*(.*?)```", text, re.DOTALL)
+    return match.group(1).strip() if match else text.strip()
 
 
 def generate_dynamic_fields(name: str, ws_type: str, purpose: str) -> list[dict]:
-    client = get_client()
-    response = client.messages.create(
-        model=MODEL,
-        max_tokens=2048,
-        system=(
-            "당신은 선언형 작업 정의 도우미다. 작업공간의 목적을 보고, 작업을 정확히 "
-            "정의하기 위해 추가로 받아야 할 입력 필드를 JSON 배열로만 출력한다. "
-            '각 원소: {"id": string, "label": string, "type": "text"|"select"|"multiline"|"number", '
-            '"options": string[]|null, "value": ""}. 3~5개. JSON 외 다른 텍스트 금지.'
-        ),
-        messages=[
+    ensure_provider_key()
+    response = _completion(
+        [
+            {
+                "role": "system",
+                "content": (
+                    "당신은 선언형 작업 정의 도우미다. 작업공간의 목적을 보고, 작업을 정확히 "
+                    "정의하기 위해 추가로 받아야 할 입력 필드를 JSON 배열로만 출력한다. "
+                    '각 원소: {"id": string, "label": string, "type": "text"|"select"|"multiline"|"number", '
+                    '"options": string[]|null, "value": ""}. 3~5개. JSON 외 다른 텍스트 금지.'
+                ),
+            },
             {
                 "role": "user",
                 "content": f"작업공간 이름: {name}\n타입: {ws_type}\n목적: {purpose}",
-            }
+            },
         ],
+        max_tokens=2048,
     )
+    text = response.choices[0].message.content or ""
     try:
-        fields = json.loads(_text(response))
+        fields = json.loads(_strip_fences(text))
         assert isinstance(fields, list)
         return fields
     except (json.JSONDecodeError, AssertionError) as e:
@@ -60,43 +92,95 @@ def generate_dynamic_fields(name: str, ws_type: str, purpose: str) -> list[dict]
 
 
 def generate_checklist(name: str, ws_type: str, purpose: str, fields: list[dict]) -> list[str]:
-    client = get_client()
+    ensure_provider_key()
     field_text = "\n".join(f"- {f.get('label')}: {f.get('value')}" for f in fields)
-    response = client.messages.create(
-        model=MODEL,
-        max_tokens=2048,
-        system=(
-            "당신은 작업 계획 도우미다. 선언형 정의를 보고 실행 체크리스트를 만든다. "
-            "각 줄은 '[AI] 제목', '[인간] 제목', '[승인] 제목' 중 하나의 형식. "
-            "4~7줄, 줄바꿈으로 구분, 다른 텍스트 금지. 마지막 줄은 반드시 [승인] 항목."
-        ),
-        messages=[
+    response = _completion(
+        [
+            {
+                "role": "system",
+                "content": (
+                    "당신은 작업 계획 도우미다. 선언형 정의를 보고 실행 체크리스트를 만든다. "
+                    "각 줄은 '[AI] 제목', '[인간] 제목', '[승인] 제목' 중 하나의 형식. "
+                    "4~7줄, 줄바꿈으로 구분, 다른 텍스트 금지. 마지막 줄은 반드시 [승인] 항목."
+                ),
+            },
             {
                 "role": "user",
                 "content": f"작업공간: {name} ({ws_type})\n목적: {purpose}\n동적 필드:\n{field_text}",
-            }
+            },
         ],
+        max_tokens=2048,
     )
-    return [line for line in _text(response).splitlines() if line.strip()]
+    text = response.choices[0].message.content or ""
+    return [line for line in text.splitlines() if line.strip()]
 
 
-def execute_item(req_title: str, ws_name: str, purpose: str, comment: str | None,
-                 context: str | None, tool_result: str | None) -> str:
-    client = get_client()
+def execute_item(
+    req_title: str,
+    ws_name: str,
+    purpose: str,
+    comment: str | None,
+    context: str | None,
+    tool_result: str | None,
+) -> tuple[str, list[dict]]:
+    """체크리스트 항목 실행 — function calling 도구 루프 포함.
+
+    반환: (결과 마크다운, 도구 호출 트레이스)
+    """
+    ensure_provider_key()
     parts = [f"작업공간: {ws_name}", f"목적: {purpose}", f"수행할 단계: {req_title}"]
     if comment:
         parts.append(f"반려 코멘트(반드시 반영): {comment}")
     if context:
         parts.append(f"엣지 그래프 컨텍스트:\n{context}")
     if tool_result:
-        parts.append(f"도구 실행 결과:\n{tool_result}")
-    response = client.messages.create(
-        model=MODEL,
-        max_tokens=4096,
-        system=(
-            "당신은 WhiteboardLM의 실행 에이전트다. 주어진 체크리스트 단계를 수행한 "
-            "결과물을 마크다운으로 작성한다. 결과물 본문만 출력한다."
-        ),
-        messages=[{"role": "user", "content": "\n\n".join(parts)}],
-    )
-    return _text(response)
+        parts.append(f"클라이언트 도구 실행 결과:\n{tool_result}")
+
+    messages: list[dict] = [
+        {
+            "role": "system",
+            "content": (
+                "당신은 WhiteboardLM의 실행 에이전트다. 주어진 체크리스트 단계를 수행한 "
+                "결과물을 마크다운으로 작성한다. 계산·데이터 처리·검증이 필요하면 제공된 "
+                "도구를 사용한다. 최종 응답은 결과물 본문만 출력한다."
+            ),
+        },
+        {"role": "user", "content": "\n\n".join(parts)},
+    ]
+
+    trace: list[dict] = []
+    for _ in range(MAX_TOOL_ITERATIONS):
+        response = _completion(messages, max_tokens=4096, tools=TOOL_SPECS)
+        msg = response.choices[0].message
+        tool_calls = getattr(msg, "tool_calls", None)
+        if not tool_calls:
+            return msg.content or "", trace
+
+        # 어시스턴트 턴(도구 호출 포함)을 dict로 재구성해 히스토리에 추가
+        messages.append(
+            {
+                "role": "assistant",
+                "content": msg.content or "",
+                "tool_calls": [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments,
+                        },
+                    }
+                    for tc in tool_calls
+                ],
+            }
+        )
+        for tc in tool_calls:
+            try:
+                arguments = json.loads(tc.function.arguments or "{}")
+            except json.JSONDecodeError:
+                arguments = {}
+            result = run_tool(tc.function.name, arguments)
+            trace.append({"tool": tc.function.name, "arguments": arguments, "result": result})
+            messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
+
+    raise HTTPException(status_code=502, detail="도구 호출 반복 한도(5회)를 초과했습니다.")
