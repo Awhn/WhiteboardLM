@@ -11,8 +11,8 @@ import {
   type NodeChange,
 } from '@xyflow/react'
 import { useBoardStore } from './boardStore'
+import { useUIStore } from './uiStore'
 import { WorkspaceNode, type WorkspaceNodeType } from '../workspace/WorkspaceNode'
-import { DeclarationPanel } from '../workspace/DeclarationPanel'
 
 const nodeTypes = { workspace: WorkspaceNode }
 
@@ -26,6 +26,7 @@ export function BoardCanvas() {
   const removeWorkspace = useBoardStore((s) => s.removeWorkspace)
   const selectWorkspace = useBoardStore((s) => s.selectWorkspace)
   const addEdge = useBoardStore((s) => s.addEdge)
+  const toggleDrawer = useUIStore((s) => s.toggleDrawer)
 
   const nodes = useMemo<WorkspaceNodeType[]>(
     () =>
@@ -106,6 +107,18 @@ export function BoardCanvas() {
             >
               + 작업공간 추가
             </button>
+            <button
+              onClick={() => toggleDrawer('checklist')}
+              className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100"
+            >
+              📋 전체 체크리스트
+            </button>
+            <button
+              onClick={() => toggleDrawer('log')}
+              className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100"
+            >
+              🕘 로그
+            </button>
           </div>
         </Panel>
 
@@ -127,8 +140,6 @@ export function BoardCanvas() {
           </div>
         )}
       </ReactFlow>
-
-      <DeclarationPanel />
     </div>
   )
 }

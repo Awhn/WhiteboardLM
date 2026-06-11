@@ -1,16 +1,18 @@
 import { useState } from 'react'
-import { useShallow } from 'zustand/react/shallow'
 import { useBoardStore } from '../board/boardStore'
 import { getLLMClient } from '../llm'
-import { parseChecklistLines } from '../checklist/parse'
+import { WorkspaceChecklist } from '../checklist/WorkspaceChecklist'
 import { isDeclarationComplete } from './declaration'
 import { WORKSPACE_TYPES, WORKSPACE_TYPE_CONFIG } from './typeConfig'
 import type { DynamicField, DynamicFieldType, WorkspaceType } from './types'
 
 let manualFieldCounter = 0
 
-/** 선택된 작업공간의 선언형 정의를 편집하는 우측 패널 */
-export function DeclarationPanel() {
+/**
+ * 우측 사이드바: 선택된 작업공간의 선언형 정의 + 체크리스트 통합.
+ * 캔버스의 노드 윈도우는 콘텐츠(WYSIWYG)만 표시하고, 메타 작업은 모두 여기서 한다.
+ */
+export function WorkspaceSidebar() {
   const workspace = useBoardStore((s) =>
     s.workspaces.find((w) => w.id === s.selectedWorkspaceId),
   )
@@ -18,17 +20,9 @@ export function DeclarationPanel() {
   const updateDeclaration = useBoardStore((s) => s.updateDeclaration)
   const setDynamicFieldValue = useBoardStore((s) => s.setDynamicFieldValue)
   const selectWorkspace = useBoardStore((s) => s.selectWorkspace)
-  const setChecklistForWorkspace = useBoardStore((s) => s.setChecklistForWorkspace)
-  const checklistCount = useBoardStore(
-    useShallow(
-      (s) => s.checklistItems.filter((i) => i.workspaceId === s.selectedWorkspaceId).length,
-    ),
-  )
 
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [generatingChecklist, setGeneratingChecklist] = useState(false)
-  const [checklistError, setChecklistError] = useState<string | null>(null)
   const [manualLabel, setManualLabel] = useState('')
   const [manualType, setManualType] = useState<DynamicFieldType>('text')
 
@@ -55,27 +49,6 @@ export function DeclarationPanel() {
     }
   }
 
-  const handleGenerateChecklist = async () => {
-    const id = workspace.id
-    setGeneratingChecklist(true)
-    setChecklistError(null)
-    try {
-      const lines = await getLLMClient().generateChecklist({
-        name: workspace.name,
-        type: workspace.type,
-        purpose,
-        dynamicFields,
-      })
-      const parsed = parseChecklistLines(lines)
-      if (parsed.length === 0) throw new Error('생성된 체크리스트가 비어 있습니다.')
-      setChecklistForWorkspace(id, parsed)
-    } catch (e) {
-      setChecklistError(e instanceof Error ? e.message : '체크리스트 생성에 실패했습니다.')
-    } finally {
-      setGeneratingChecklist(false)
-    }
-  }
-
   const handleManualAdd = () => {
     if (!manualLabel.trim()) return
     const field: DynamicField = {
@@ -94,7 +67,7 @@ export function DeclarationPanel() {
     })
 
   return (
-    <aside className="absolute right-0 top-0 z-20 flex h-full w-80 flex-col border-l border-slate-200 bg-white shadow-xl">
+    <aside className="flex h-full w-80 shrink-0 flex-col border-l border-slate-200 bg-white">
       <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-bold text-slate-800">선언형 정의</h2>
@@ -212,43 +185,6 @@ export function DeclarationPanel() {
         )}
 
         <div className="border-t border-slate-100 pt-3">
-          <div className="mb-1 flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-600">체크리스트</span>
-            {checklistCount > 0 && (
-              <span className="text-[10px] text-slate-400">{checklistCount}개 항목</span>
-            )}
-          </div>
-          <button
-            onClick={handleGenerateChecklist}
-            disabled={!complete || generatingChecklist}
-            title={complete ? '' : '정의를 완료하면 생성할 수 있습니다'}
-            className="w-full rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-          >
-            {generatingChecklist
-              ? '체크리스트 생성 중…'
-              : checklistCount > 0
-                ? '🔄 체크리스트 다시 생성'
-                : '📋 체크리스트 생성'}
-          </button>
-          {!complete && (
-            <p className="mt-1 text-[10px] text-slate-400">
-              목적과 모든 동적 필드를 입력하면 활성화됩니다.
-            </p>
-          )}
-          {checklistError && (
-            <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
-              <p>{checklistError}</p>
-              <button
-                onClick={handleGenerateChecklist}
-                className="mt-1 font-semibold underline"
-              >
-                다시 시도
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="border-t border-slate-100 pt-3">
           <span className="mb-1 block text-xs font-semibold text-slate-600">
             필드 직접 추가
           </span>
@@ -278,6 +214,8 @@ export function DeclarationPanel() {
             </button>
           </div>
         </div>
+
+        <WorkspaceChecklist workspace={workspace} />
       </div>
     </aside>
   )

@@ -4,17 +4,18 @@ import { WORKSPACE_TYPE_CONFIG, canPointerEnter } from './typeConfig'
 import { isDeclarationComplete } from './declaration'
 import { PointerBadge } from '../pointer/PointerBadge'
 import { runPointerAt } from '../pointer/runner'
-import { ChecklistSection } from '../checklist/ChecklistSection'
 
 export type WorkspaceNodeType = Node<{ workspace: Workspace }, 'workspace'>
 
-/** 보드 위의 작업공간 노드 윈도우 (드래그 이동 + 선택 시 리사이즈) */
+/**
+ * 보드 위의 작업공간 노드 윈도우 (드래그 이동 + 선택 시 리사이즈).
+ * WYSIWYG 원칙: 본문에는 작업 결과 콘텐츠만 표시한다.
+ * 정의·체크리스트 등 메타 작업은 우측 사이드바에서 수행.
+ */
 export function WorkspaceNode({ data, selected }: NodeProps<WorkspaceNodeType>) {
   const ws = data.workspace
   const config = WORKSPACE_TYPE_CONFIG[ws.type]
   const complete = isDeclarationComplete(ws)
-  const fields = ws.declaration.dynamicFields
-  const filledCount = fields.filter((f) => f.value.trim()).length
 
   return (
     <div className="relative h-full">
@@ -65,23 +66,13 @@ export function WorkspaceNode({ data, selected }: NodeProps<WorkspaceNodeType>) 
         <div className="nodrag nowheel flex-1 overflow-auto p-3 text-xs leading-relaxed text-slate-600">
           {ws.content ? (
             <pre className="whitespace-pre-wrap font-sans">{ws.content}</pre>
-          ) : ws.declaration.purpose ? (
-            <div className="space-y-1.5">
-              <p>{ws.declaration.purpose}</p>
-              {fields.length > 0 && (
-                <p className="text-[10px] text-slate-400">
-                  동적 필드 {fields.length}개 중 {filledCount}개 입력됨
-                </p>
-              )}
-            </div>
           ) : (
             <span className="italic text-slate-400">
-              노드를 선택하면 우측 정의 패널에서 목적을 입력할 수 있습니다.
+              아직 콘텐츠가 없습니다. 정의를 완료하고 포인터를 이동하면 결과가 여기에
+              기록됩니다.
             </span>
           )}
         </div>
-
-        <ChecklistSection workspaceId={ws.id} />
 
         <Handle type="target" position={Position.Left} className="!h-3 !w-3 !bg-slate-400" />
         <Handle type="source" position={Position.Right} className="!h-3 !w-3 !bg-slate-400" />
