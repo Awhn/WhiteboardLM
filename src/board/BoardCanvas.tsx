@@ -12,6 +12,7 @@ import {
 } from '@xyflow/react'
 import { useBoardStore } from './boardStore'
 import { WorkspaceNode, type WorkspaceNodeType } from '../workspace/WorkspaceNode'
+import { DeclarationPanel } from '../workspace/DeclarationPanel'
 
 const nodeTypes = { workspace: WorkspaceNode }
 
@@ -82,7 +83,7 @@ export function BoardCanvas() {
   )
 
   return (
-    <div className="h-full w-full">
+    <div className="relative h-full w-full">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -126,6 +127,8 @@ export function BoardCanvas() {
           </div>
         )}
       </ReactFlow>
+
+      <DeclarationPanel />
     </div>
   )
 }
