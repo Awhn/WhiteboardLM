@@ -23,6 +23,8 @@ export async function runPointerAt(workspaceId: string): Promise<boolean> {
 
   running = true
   const setStatus = store.getState().setPointerStatus
+  const wsName = store.getState().workspaces.find((w) => w.id === workspaceId)?.name ?? workspaceId
+  store.getState().logBoard(`포인터 이동: ${wsName}`)
   try {
     setStatus('thinking')
     await delay(500)
@@ -36,12 +38,14 @@ export async function runPointerAt(workspaceId: string): Promise<boolean> {
 
       if (!next) {
         setStatus('done')
+        store.getState().logBoard(`체크리스트 처리 완료: ${wsName}`)
         return true
       }
 
       if (next.tag !== 'AI') {
         setStatus('waiting')
         store.getState().appendItemActivity(next.id, '사용자 행동 대기 — 포인터 일시정지')
+        store.getState().logBoard(`대기: 「${next.title}」 사용자 행동 필요`)
         return true
       }
 
@@ -54,12 +58,15 @@ export async function runPointerAt(workspaceId: string): Promise<boolean> {
           title: next.title,
           workspaceName: ws.name,
           purpose: ws.declaration.purpose,
+          // 반려된 항목 재작업 시 마지막 코멘트를 반영 (M7)
+          comment: next.comments.at(-1)?.text,
         })
         store.getState().updateWorkspace(workspaceId, {
           content: ws.content ? `${ws.content}\n\n${result}` : result,
         })
         store.getState().setChecklistItemStatus(next.id, 'staged')
         store.getState().appendItemActivity(next.id, 'AI 실행 완료 — 검토 대기(staged)')
+        store.getState().logBoard(`AI 실행: 「${next.title}」 → staged`)
       } catch (e) {
         setStatus('waiting')
         store
