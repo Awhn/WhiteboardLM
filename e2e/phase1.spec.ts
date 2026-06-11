@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import { defineWorkspace, waitForPointer } from './helpers'
 
 /**
  * Phase 1 통합 테스트 (M9)
@@ -12,34 +13,6 @@ test.beforeEach(async ({ page }) => {
   await page.evaluate(() => localStorage.clear())
   await page.reload()
 })
-
-/** 작업공간을 추가하고 선언형 정의를 완료한다 (output 타입 기준) */
-async function defineWorkspace(page: Page, name: string, purpose: string) {
-  await page.getByRole('button', { name: '+ 작업공간 추가' }).click()
-  // 마지막으로 추가된 노드를 선택
-  await page.locator('.react-flow__node').last().click()
-  await expect(page.getByText('선언형 정의')).toBeVisible()
-  await page.locator('aside input').first().fill(name)
-  await page.getByRole('button', { name: '🎯 결과물' }).click()
-  await page.locator('aside textarea').first().fill(purpose)
-  await page.getByRole('button', { name: '✨ 동적 필드 생성' }).click()
-  await expect(page.locator('aside').getByText('대상 독자')).toBeVisible()
-  await page
-    .locator('aside')
-    .getByText('대상 독자')
-    .locator('..')
-    .locator('..')
-    .locator('input')
-    .fill('테스트 독자')
-  await page.locator('aside select').first().selectOption({ index: 1 })
-  await page.locator('aside input[type="number"]').fill('300')
-  await page.locator('aside textarea').nth(1).fill('테스트 핵심 내용')
-  await expect(page.locator('aside').getByText('✓ 정의 완료')).toBeVisible()
-}
-
-async function waitForPointer(page: Page, label: RegExp) {
-  await expect(page.getByTestId('pointer-badge')).toHaveText(label, { timeout: 30_000 })
-}
 
 test('빈 보드 → 작업공간 추가 UX', async ({ page }) => {
   await expect(page.getByText('보드가 비어 있습니다')).toBeVisible()
