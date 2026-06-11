@@ -67,7 +67,7 @@ export function WorkspaceSidebar() {
     })
 
   return (
-    <aside className="flex h-full w-80 shrink-0 flex-col border-l border-slate-200 bg-white">
+    <aside className="flex h-full w-80 shrink-0 flex-col border-l border-slate-200 bg-white max-md:absolute max-md:right-0 max-md:top-0 max-md:z-30 max-md:shadow-2xl">
       <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-bold text-slate-800">선언형 정의</h2>

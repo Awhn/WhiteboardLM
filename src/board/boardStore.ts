@@ -94,11 +94,13 @@ export const useBoardStore = create<BoardState>()(
       type: partial?.type ?? 'intermediate',
       declaration: { purpose: '', dynamicFields: [] },
       content: '',
-      // 새 작업공간이 겹치지 않도록 계단식으로 배치
-      position: partial?.position ?? { x: 80 + count * 60, y: 80 + count * 60 },
+      // 새 작업공간이 기존 노드와 겹치지 않도록 가로로 펼쳐 배치
+      position:
+        partial?.position ?? { x: 80 + count * (DEFAULT_SIZE.width + 60), y: 80 + count * 40 },
       size: { ...DEFAULT_SIZE },
     }
     set((s) => ({ workspaces: [...s.workspaces, workspace] }))
+    get().logBoard(`작업공간 추가: ${workspace.name}`)
     return workspace
   },
 
@@ -160,7 +162,7 @@ export const useBoardStore = create<BoardState>()(
       selectedWorkspaceId: s.selectedWorkspaceId === id ? null : s.selectedWorkspaceId,
     })),
 
-  setChecklistForWorkspace: (workspaceId, items) =>
+  setChecklistForWorkspace: (workspaceId, items) => {
     set((s) => ({
       checklistItems: [
         ...s.checklistItems.filter((i) => i.workspaceId !== workspaceId),
@@ -180,7 +182,10 @@ export const useBoardStore = create<BoardState>()(
           ],
         })),
       ],
-    })),
+    }))
+    const wsName = get().workspaces.find((w) => w.id === workspaceId)?.name ?? workspaceId
+    get().logBoard(`체크리스트 생성: ${wsName} — ${items.length}개 항목`)
+  },
 
   addChecklistItem: (workspaceId, title, tag) =>
     set((s) => ({

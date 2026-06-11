@@ -17,7 +17,7 @@ export function BottomDrawer() {
   if (!drawerOpen) return null
 
   return (
-    <div className="flex h-72 shrink-0 flex-col border-t border-slate-200 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
+    <div className="flex h-72 shrink-0 flex-col border-t border-slate-200 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.04)] max-md:h-56">
       <header className="flex items-center gap-1 border-b border-slate-100 px-3 py-1.5">
         {TABS.map((tab) => (
           <button
