@@ -99,27 +99,30 @@ Board
 - [x] 정의 완료 상태 표시 `6gmRFF6PCvmmF2X6`
 
 ### M5. 체크리스트 자동 생성 `6gmQW385qH3CwW7c`
-- [ ] 정의 완료 → API 호출 → 체크리스트 생성 `6gmRFCvP5ccWh636`
-- [ ] `[AI]/[인간]/[승인]` 태그 파싱 `6gmRFF58qhH6pCQc`
-- [ ] pending → staged → committed 상태 관리 `6gmRFF3mF9fW6jH6`
-- [ ] 수동 항목 추가 `6gmRFF8V6PVfr9P6`
+- [x] 정의 완료 → API 호출 → 체크리스트 생성 `6gmRFCvP5ccWh636` (스텁 LLM)
+- [x] `[AI]/[인간]/[승인]` 태그 파싱 `6gmRFF58qhH6pCQc`
+- [x] pending → staged → committed 상태 관리 `6gmRFF3mF9fW6jH6`
+- [x] 수동 항목 추가 `6gmRFF8V6PVfr9P6`
 
 ### M6. 포인터 컴포넌트 `6gmQW3F3WgX9GpP6`
-- [ ] floating badge 시각화 `6gmRFCv97MmgHcq6`
-- [ ] 상태별 UI: 🌀📋✏️⏸️✅ `6gmRFCxQ5wrJMMmc`
-- [ ] 수동 이동 (클릭/드래그) `6gmRFF52HvWWQ9Q6`
-- [ ] 이동 시 체크리스트 실행 트리거 `6gmRFF8CQW5v9v66`
+- [x] floating badge 시각화 `6gmRFCv97MmgHcq6`
+- [x] 상태별 UI: 🌀📋✏️⏸️✅ `6gmRFCxQ5wrJMMmc`
+- [x] 수동 이동 (클릭/드래그) `6gmRFF52HvWWQ9Q6` (노드 헤더 📍 버튼)
+- [x] 이동 시 체크리스트 실행 트리거 `6gmRFF8CQW5v9v66`
 
 ### M7. staged / committed 흐름 `6gmQW3McCRwjh9v6`
-- [ ] AI 완료 → staged(노란색) `6gmRFCr3gMxpX3R6`
-- [ ] 승인 → committed + 스냅샷 `6gmRFF2H9wVf39V6`
-- [ ] 반려 → 코멘트 → AI 재작업 `6gmRFF4GxMmpjQc6`
-- [ ] committed 항목 클릭 → 스냅샷 복원 `6gmRFMVJwxG7rCG6`
+- [x] AI 완료 → staged(노란색) `6gmRFCr3gMxpX3R6`
+- [x] 승인 → committed + 스냅샷 `6gmRFF2H9wVf39V6`
+- [x] 반려 → 코멘트 → AI 재작업 `6gmRFF4GxMmpjQc6`
+- [x] committed 항목 클릭 → 스냅샷 복원 `6gmRFMVJwxG7rCG6`
 
 ### M8. 스냅샷·버전 관리 `6gmQW3WF9vqQ4JP6`
-- [ ] committed마다 content 스냅샷 (localStorage) `6gmRFMRRcRXfjcj6`
-- [ ] 되돌리기: 복원 + 이후 항목 pending 전환 `6gmRFMWpjh59M2xc`
-- [ ] 우측 행동 로그 패널 `6gmRFMgxq88CwMPc`
+- [x] committed마다 content 스냅샷 (localStorage) `6gmRFMRRcRXfjcj6` (zustand persist)
+- [x] 되돌리기: 복원 + 이후 항목 pending 전환 `6gmRFMWpjh59M2xc`
+- [x] 행동 로그 패널 `6gmRFMgxq88CwMPc` (UI 재구성에 따라 하단 드로어 탭으로 배치)
+
+> **UI 재구성 (사용자 피드백 반영)**: 캔버스 노드는 WYSIWYG — 콘텐츠만 표시.
+> 정의+체크리스트는 우측 사이드바 통합, 전체 체크리스트·행동 로그는 하단 드로어(별도 공간).
 
 ### M9. Phase 1 통합 테스트 `6gmQW3cQ25RF2vPc`
 - [ ] 작업공간 2~3개 전체 루프 검증 `6gmRFMW5hpcQXffc`
