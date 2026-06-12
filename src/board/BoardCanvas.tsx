@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState, type DragEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import {
   Background,
   BackgroundVariant,
@@ -11,7 +11,9 @@ import {
   type Connection,
   type Edge,
   type EdgeChange,
+  type FinalConnectionState,
   type NodeChange,
+  type OnConnectStartParams,
 } from '@xyflow/react'
 import { useBoardStore } from './boardStore'
 import { useUIStore } from './uiStore'
@@ -21,6 +23,23 @@ import { EDGE_TYPE_CONFIG } from '../edge/edgeConfig'
 import { EdgeInspector } from '../edge/EdgeInspector'
 import { importFilesToBoard } from '../files/importFiles'
 import { ACCEPT_ATTRIBUTE, SUPPORTED_LABEL } from '../files/registry'
+import { TemplateMenu } from '../workspace/TemplateMenu'
+import { instantiateTemplate } from '../workspace/instantiateTemplate'
+
+/** 엣지 드래그 중 이 시간(ms) 동안 정지하면 템플릿 오버레이를 띄운다 */
+const PAUSE_MS = 600
+const PAUSE_MOVE_TOLERANCE = 8
+
+interface TemplateMenuState {
+  x: number
+  y: number
+  clientX: number
+  clientY: number
+  sourceId: string
+  mode: 'drag' | 'click'
+  /** 드롭 직후 발생하는 pane click이 메뉴를 닫지 않도록 오픈 시각 기록 */
+  openedAt: number
+}
 
 const nodeTypes = { workspace: WorkspaceNode }
 
@@ -39,7 +58,123 @@ export function BoardCanvas() {
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [dropActive, setDropActive] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const wrapperRef = useRef<HTMLDivElement>(null)
   const { screenToFlowPosition } = useReactFlow()
+
+  const [templateMenu, setTemplateMenu] = useState<TemplateMenuState | null>(null)
+  const templateMenuRef = useRef<TemplateMenuState | null>(null)
+  useEffect(() => {
+    templateMenuRef.current = templateMenu
+  }, [templateMenu])
+  /** 연결 드래그 추적(정지 감지) 해제 함수 */
+  const connectCleanupRef = useRef<(() => void) | null>(null)
+
+  const toLocal = useCallback((clientX: number, clientY: number) => {
+    const rect = wrapperRef.current?.getBoundingClientRect()
+    if (!rect) return { x: clientX, y: clientY }
+    return {
+      x: Math.min(clientX - rect.left + 10, rect.width - 270),
+      y: Math.min(clientY - rect.top + 10, rect.height - 280),
+    }
+  }, [])
+
+  const openTemplateMenu = useCallback(
+    (clientX: number, clientY: number, sourceId: string, mode: 'drag' | 'click') => {
+      const { x, y } = toLocal(clientX, clientY)
+      setTemplateMenu({ x, y, clientX, clientY, sourceId, mode, openedAt: Date.now() })
+    },
+    [toLocal],
+  )
+
+  // 엣지 드래그 시작: 커서가 잠시 멈추면 템플릿 오버레이 표시
+  const onConnectStart = useCallback(
+    (event: MouseEvent | TouchEvent, params: OnConnectStartParams) => {
+      const sourceId = params.nodeId
+      if (!sourceId || !(event instanceof MouseEvent)) return
+      setTemplateMenu(null)
+
+      let lastX = event.clientX
+      let lastY = event.clientY
+      let timer: number | null = null
+
+      const showIfNotOverNode = (cx: number, cy: number) => {
+        // 다른 노드 위에서 멈춘 경우는 일반 연결 의도로 보고 띄우지 않는다
+        const el = document.elementFromPoint(cx, cy)
+        if (el?.closest('.react-flow__node')) {
+          arm(cx, cy)
+          return
+        }
+        openTemplateMenu(cx, cy, sourceId, 'drag')
+      }
+
+      const arm = (cx: number, cy: number) => {
+        if (timer !== null) window.clearTimeout(timer)
+        timer = window.setTimeout(() => showIfNotOverNode(cx, cy), PAUSE_MS)
+      }
+
+      const onMove = (e: MouseEvent) => {
+        // 오버레이가 이미 떠 있으면 카드로 이동하는 중이므로 유지
+        if (templateMenuRef.current?.mode === 'drag') return
+        if (
+          Math.abs(e.clientX - lastX) > PAUSE_MOVE_TOLERANCE ||
+          Math.abs(e.clientY - lastY) > PAUSE_MOVE_TOLERANCE
+        ) {
+          lastX = e.clientX
+          lastY = e.clientY
+          arm(e.clientX, e.clientY)
+        }
+      }
+
+      window.addEventListener('mousemove', onMove)
+      arm(lastX, lastY)
+      connectCleanupRef.current = () => {
+        window.removeEventListener('mousemove', onMove)
+        if (timer !== null) window.clearTimeout(timer)
+        connectCleanupRef.current = null
+      }
+    },
+    [openTemplateMenu],
+  )
+
+  const createFromTemplate = useCallback(
+    (templateId: string, sourceId: string, clientX: number, clientY: number) => {
+      const position = screenToFlowPosition({ x: clientX, y: clientY })
+      void instantiateTemplate(sourceId, templateId, position)
+      setTemplateMenu(null)
+    },
+    [screenToFlowPosition],
+  )
+
+  // 엣지 드래그 종료: 템플릿 카드 위에 놓으면 생성, 빈 캔버스면 클릭 모드 메뉴
+  const onConnectEnd = useCallback(
+    (event: MouseEvent | TouchEvent, connectionState: FinalConnectionState) => {
+      connectCleanupRef.current?.()
+      const sourceId = connectionState.fromNode?.id
+      if (connectionState.isValid || !sourceId || !(event instanceof MouseEvent)) {
+        setTemplateMenu(null)
+        return
+      }
+
+      const card = (event.target as HTMLElement | null)?.closest?.('[data-template-id]')
+      const menu = templateMenuRef.current
+      if (card && menu) {
+        createFromTemplate(
+          card.getAttribute('data-template-id') ?? '',
+          menu.sourceId,
+          menu.clientX,
+          menu.clientY,
+        )
+        return
+      }
+      if (!menu) {
+        // 일시정지 없이 빈 캔버스에 드롭 → 같은 메뉴를 클릭 모드로
+        openTemplateMenu(event.clientX, event.clientY, sourceId, 'click')
+        return
+      }
+      setTemplateMenu(null)
+    },
+    [createFromTemplate, openTemplateMenu],
+  )
 
   const handleImport = useCallback(
     async (files: Iterable<File>, position?: { x: number; y: number }) => {
@@ -150,6 +285,7 @@ export function BoardCanvas() {
 
   return (
     <div
+      ref={wrapperRef}
       className="relative h-full w-full"
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes('Files')) {
@@ -169,6 +305,11 @@ export function BoardCanvas() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onConnectStart={onConnectStart}
+        onConnectEnd={onConnectEnd}
+        onPaneClick={() =>
+          setTemplateMenu((menu) => (menu && Date.now() - menu.openedAt < 300 ? menu : null))
+        }
         proOptions={{ hideAttribution: true }}
         deleteKeyCode={['Backspace', 'Delete']}
         zoomOnDoubleClick={false}
@@ -252,6 +393,24 @@ export function BoardCanvas() {
 
       {selectedEdgeId && (
         <EdgeInspector edgeId={selectedEdgeId} onClose={() => setSelectedEdgeId(null)} />
+      )}
+
+      {templateMenu && (
+        <TemplateMenu
+          x={templateMenu.x}
+          y={templateMenu.y}
+          sourceId={templateMenu.sourceId}
+          mode={templateMenu.mode}
+          onSelect={(templateId) =>
+            createFromTemplate(
+              templateId,
+              templateMenu.sourceId,
+              templateMenu.clientX,
+              templateMenu.clientY,
+            )
+          }
+          onClose={() => setTemplateMenu(null)}
+        />
       )}
 
       {dropActive && (
