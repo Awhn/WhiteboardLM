@@ -2,9 +2,8 @@ import { useState } from 'react'
 import { Handle, NodeResizer, Position, type Node, type NodeProps } from '@xyflow/react'
 import type { Workspace } from './types'
 import { WORKSPACE_TYPE_CONFIG, canPointerEnter } from './typeConfig'
+import { kindOf } from './kinds/registry'
 import { isDeclarationComplete } from './declaration'
-import { WorkspaceContent } from './WorkspaceContent'
-import { FileViewer } from '../files/FileViewer'
 import { PointerBadge } from '../pointer/PointerBadge'
 import { runPointerAt } from '../pointer/runner'
 import { useBoardStore } from '../board/boardStore'
@@ -21,6 +20,7 @@ export type WorkspaceNodeType = Node<{ workspace: Workspace }, 'workspace'>
 export function WorkspaceNode({ data, selected }: NodeProps<WorkspaceNodeType>) {
   const ws = data.workspace
   const config = WORKSPACE_TYPE_CONFIG[ws.type]
+  const kind = kindOf(ws)
   const complete = isDeclarationComplete(ws)
   const [editing, setEditing] = useState(false)
 
@@ -66,7 +66,7 @@ export function WorkspaceNode({ data, selected }: NodeProps<WorkspaceNodeType>) 
           >
             {config.icon} {config.label}
           </span>
-          {!ws.attachment && (
+          {kind.editable && (
           <button
             onClick={(e) => {
               e.stopPropagation()
@@ -86,7 +86,7 @@ export function WorkspaceNode({ data, selected }: NodeProps<WorkspaceNodeType>) 
             ✏️
           </button>
           )}
-          {canPointerEnter(ws.type) && (
+          {kind.declarative && canPointerEnter(ws.type) && (
             <button
               onClick={(e) => {
                 e.stopPropagation()
@@ -101,15 +101,11 @@ export function WorkspaceNode({ data, selected }: NodeProps<WorkspaceNodeType>) 
           )}
         </header>
 
-        {ws.attachment ? (
-          <FileViewer attachment={ws.attachment} />
-        ) : (
-          <WorkspaceContent
-            workspace={ws}
-            editing={editing}
-            onEditingChange={handleEditingChange}
-          />
-        )}
+        <kind.Body
+          workspace={ws}
+          editing={editing}
+          onEditingChange={handleEditingChange}
+        />
 
         <Handle type="target" position={Position.Left} className="!h-3 !w-3 !bg-slate-400" />
         <Handle type="source" position={Position.Right} className="!h-3 !w-3 !bg-slate-400" />

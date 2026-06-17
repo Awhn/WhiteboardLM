@@ -1,4 +1,5 @@
 import type { Workspace } from '../workspace/types'
+import { kindOf } from '../workspace/kinds/registry'
 import type { WorkspaceEdge } from '../edge/types'
 import { EDGE_TYPE_CONFIG } from '../edge/edgeConfig'
 
@@ -33,9 +34,8 @@ const declarationSummary = (ws: Workspace): string => {
 const loadDetail = (edgeType: WorkspaceEdge['type'], ws: Workspace): string => {
   switch (edgeType) {
     case 'source': {
-      // source: 전체 내용 로드 — 첨부 파일 노드는 텍스트 추출본을 읽는다
-      if (ws.attachment) return `[전체 내용 — 첨부 파일]\n${ws.attachment.textContent}`
-      return ws.content ? `[전체 내용]\n${ws.content}` : '[전체 내용] (비어 있음)'
+      // source: 전체 내용 로드 — 카인드가 자신의 컨텍스트 텍스트 형식을 소유 (M11)
+      return kindOf(ws).getContextText?.(ws) ?? '[전체 내용] (비어 있음)'
     }
     case 'reference':
       // reference: 선언형 정의만 로드. 필요 시 내용 추가 요청 가능 표시

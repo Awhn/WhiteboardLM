@@ -21,10 +21,25 @@ export interface Declaration {
 /** 작업공간 콘텐츠 형식 — 마크다운(기본) 또는 일반 텍스트 */
 export type ContentFormat = 'markdown' | 'plain'
 
+/**
+ * 노드 카인드 — 노드 본문이 "무엇이고 어떻게 동작하는가" (type과 직교).
+ * - declarative: 선언형 정의→체크리스트→포인터 실행에 참여하는 에이전트 노드
+ * - note: 사용자가 직접 쓰는 마크다운/텍스트 문서
+ * - file: 외부 가져온 파일 (뷰어)
+ * - code: 코드 에디터
+ * - web: 웹 임베드
+ */
+export type NodeKind = 'declarative' | 'note' | 'file' | 'code' | 'web'
+
 export interface Workspace {
   id: string
   name: string
+  /** 에이전트 그래프에서의 역할 (포인터 진입·엣지 의미론·권한) */
   type: WorkspaceType
+  /** 본문 표면·동작 (kind 레지스트리가 해석). 생략 시 attachment 유무로 유도 */
+  kind?: NodeKind
+  /** 카인드별 부가 데이터 (code: { language }, web: { url } 등) */
+  kindData?: Record<string, unknown>
   declaration: Declaration
   content: string
   /** 생략 시 markdown으로 취급 */

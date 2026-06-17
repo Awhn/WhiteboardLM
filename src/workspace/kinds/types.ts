@@ -1,0 +1,36 @@
+import type { ComponentType } from 'react'
+import type { NodeKind, Workspace, WorkspaceType } from '../types'
+
+/** 노드 본문 컴포넌트가 받는 공통 props */
+export interface NodeBodyProps {
+  workspace: Workspace
+  /** editable 카인드에서만 의미 있음 */
+  editing: boolean
+  onEditingChange: (editing: boolean) => void
+}
+
+/**
+ * 노드 카인드 정의 — 파일 핸들러(FileHandler)와 동일한 모듈식 레지스트리 패턴.
+ * 새 노드 종류 = 정의 객체 하나 작성 + registry 배열에 추가.
+ */
+export interface NodeKindDefinition {
+  id: NodeKind
+  label: string
+  icon: string
+  description: string
+  /** 생성 시 부여할 역할(type) 기본값 */
+  defaultType: WorkspaceType
+  /** 선언형 정의→체크리스트→포인터 실행에 참여하는가 (declarative만 true) */
+  declarative: boolean
+  /** 사용자가 본문을 직접 편집할 수 있는가 (헤더 ✏️ 노출) */
+  editable: boolean
+  /**
+   * source 엣지로 연결됐을 때 AI가 읽을 전체 내용 (M11).
+   * 라벨까지 포함한 detail 문자열을 반환하며, 비어 있으면 null.
+   */
+  getContextText?: (ws: Workspace) => string | null
+  /** 노드 본문 렌더러 (뷰어/에디터를 소유) */
+  Body: ComponentType<NodeBodyProps>
+  /** 생성 시 병합할 기본 필드 */
+  createInitial?: () => Partial<Workspace>
+}

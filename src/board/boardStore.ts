@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Declaration, Workspace, WorkspaceType } from '../workspace/types'
+import type { Declaration, NodeKind, Workspace, WorkspaceType } from '../workspace/types'
 import { canPointerEnter } from '../workspace/typeConfig'
+import { getKind, resolveKind } from '../workspace/kinds/registry'
 import type { WorkspaceEdge, EdgeType } from '../edge/types'
 import type { Pointer, PointerStatus } from '../pointer/types'
 import type {
@@ -96,14 +97,19 @@ export const useBoardStore = create<BoardState>()(
 
   addWorkspace: (partial) => {
     const count = get().workspaces.length
+    const kind: NodeKind = resolveKind(partial ?? {})
+    const kindDef = getKind(kind)
     const workspace: Workspace = {
       declaration: { purpose: '', dynamicFields: [] },
       content: '',
       size: { ...DEFAULT_SIZE },
+      ...kindDef.createInitial?.(),
       ...partial,
       id: newId('ws'),
+      kind,
       name: partial?.name ?? `작업공간 ${count + 1}`,
-      type: partial?.type ?? 'intermediate',
+      // 카인드 기본 역할(type) 사용, 명시 지정 시 우선
+      type: partial?.type ?? kindDef.defaultType,
       // 새 작업공간이 기존 노드와 겹치지 않도록 가로로 펼쳐 배치
       position:
         partial?.position ?? { x: 80 + count * (DEFAULT_SIZE.width + 60), y: 80 + count * 40 },
@@ -422,6 +428,18 @@ export const useBoardStore = create<BoardState>()(
     }),
     {
       name: 'whiteboardlm-board',
+      version: 1,
+      // v0(카인드 도입 이전) 저장본: attachment 유무로 kind 유도
+      migrate: (persisted, version) => {
+        const state = persisted as { workspaces?: Workspace[] } | undefined
+        if (version < 1 && state?.workspaces) {
+          state.workspaces = state.workspaces.map((w) => ({
+            ...w,
+            kind: w.kind ?? (w.attachment ? 'file' : 'declarative'),
+          }))
+        }
+        return persisted
+      },
       partialize: (s) => ({
         workspaces: s.workspaces,
         edges: s.edges,
