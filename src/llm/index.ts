@@ -1,17 +1,50 @@
 import { StubLLMClient } from './stubClient'
-import { FallbackLLMClient, ServerLLMClient } from './serverClient'
-import type { LLMClient } from './types'
+import { ServerLLMClient } from './serverClient'
+import { BrowserLLMClient } from './browserClient'
+import { getLLMConfig } from './config'
+import type {
+  ExecuteItemInput,
+  GenerateChecklistInput,
+  GenerateFieldsInput,
+  LLMClient,
+} from './types'
+
+/**
+ * 설정에 따라 매 호출 시 클라이언트를 선택한다:
+ * - 로컬 모드 ON: 브라우저에서 프로바이더 직접 호출 (BrowserLLMClient)
+ * - 로컬 모드 OFF: 백엔드 프록시 (ServerLLMClient)
+ * 어느 쪽이든 실패하면 스텁으로 폴백한다. [6gmRFCwh9C5CQRWc]
+ */
+class RoutingLLMClient implements LLMClient {
+  private browser = new BrowserLLMClient()
+  private server = new ServerLLMClient()
+  private stub = new StubLLMClient()
+
+  private async route<T>(fn: (c: LLMClient) => Promise<T>): Promise<T> {
+    const primary = getLLMConfig().localMode ? this.browser : this.server
+    try {
+      return await fn(primary)
+    } catch (e) {
+      console.warn('[llm] 호출 실패 — 스텁으로 폴백:', e)
+      return fn(this.stub)
+    }
+  }
+
+  generateDynamicFields(input: GenerateFieldsInput) {
+    return this.route((c) => c.generateDynamicFields(input))
+  }
+  generateChecklist(input: GenerateChecklistInput) {
+    return this.route((c) => c.generateChecklist(input))
+  }
+  executeChecklistItem(input: ExecuteItemInput) {
+    return this.route((c) => c.executeChecklistItem(input))
+  }
+}
 
 let client: LLMClient | null = null
 
-/**
- * 항상 서버→스텁 폴백 클라이언트를 사용한다.
- * ServerLLMClient가 설정(apiBase/model/apiKey)을 요청 시점에 읽으므로,
- * 설정 패널에서 백엔드 주소·키를 입력하면 즉시 반영된다.
- * apiBase 미설정 또는 키 미설정(503)·오류 시 스텁으로 폴백. [6gmRFCwh9C5CQRWc]
- */
 export function getLLMClient(): LLMClient {
-  client ??= new FallbackLLMClient(new ServerLLMClient(), new StubLLMClient())
+  client ??= new RoutingLLMClient()
   return client
 }
 
