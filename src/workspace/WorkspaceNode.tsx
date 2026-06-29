@@ -66,7 +66,7 @@ export function WorkspaceNode({ data, selected }: NodeProps<WorkspaceNodeType>) 
           >
             {config.icon} {config.label}
           </span>
-          {kind.editable && (
+          {kind.usesEditToggle && (
           <button
             onClick={(e) => {
               e.stopPropagation()

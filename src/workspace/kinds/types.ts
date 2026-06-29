@@ -22,8 +22,13 @@ export interface NodeKindDefinition {
   defaultType: WorkspaceType
   /** 선언형 정의→체크리스트→포인터 실행에 참여하는가 (declarative만 true) */
   declarative: boolean
-  /** 사용자가 본문을 직접 편집할 수 있는가 (헤더 ✏️ 노출) */
+  /** 사용자가 본문 내용을 바꿀 수 있는가 (컨텍스트·AI 잠금 판단에 사용) */
   editable: boolean
+  /**
+   * 헤더 ✏️ 보기/편집 토글을 쓰는가.
+   * true = 더블클릭 보기/편집 전환(declarative·note), false = 본문이 항상-편집형(code) 또는 비편집(file·web)
+   */
+  usesEditToggle: boolean
   /**
    * source 엣지로 연결됐을 때 AI가 읽을 전체 내용 (M11).
    * 라벨까지 포함한 detail 문자열을 반환하며, 비어 있으면 null.

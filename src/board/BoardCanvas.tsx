@@ -25,6 +25,7 @@ import { importFilesToBoard } from '../files/importFiles'
 import { ACCEPT_ATTRIBUTE, SUPPORTED_LABEL } from '../files/registry'
 import { TemplateMenu } from '../workspace/TemplateMenu'
 import { instantiateTemplate } from '../workspace/instantiateTemplate'
+import { KindAddMenu } from '../workspace/KindAddMenu'
 
 /** 엣지 드래그 중 이 시간(ms) 동안 정지하면 템플릿 오버레이를 띄운다 */
 const PAUSE_MS = 600
@@ -327,6 +328,7 @@ export function BoardCanvas() {
             >
               + 작업공간 추가
             </button>
+            <KindAddMenu />
             <button
               onClick={() => fileInputRef.current?.click()}
               title={`파일을 컨텍스트 노드로 가져오기 (지원: ${SUPPORTED_LABEL}) — 캔버스에 드래그&드롭도 가능`}
