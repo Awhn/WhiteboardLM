@@ -1,4 +1,11 @@
-import { useCallback, useMemo, useRef, useState, type DragEvent } from 'react'
+import {
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+  type MouseEvent as ReactMouseEvent,
+} from 'react'
 import {
   Background,
   BackgroundVariant,
@@ -6,6 +13,7 @@ import {
   MiniMap,
   Panel,
   ReactFlow,
+  SelectionMode,
   useReactFlow,
   type NodeChange,
 } from '@xyflow/react'
@@ -20,6 +28,7 @@ import { AgentDock } from '../agent/AgentDock'
 import { MissionBubble } from '../agent/MissionBubble'
 import { runTask } from '../agent/runner'
 import { buildSpatialContext } from '../pointer/context'
+import { CanvasContextMenu, type ContextMenuState } from './CanvasContextMenu'
 import type { AgentPersona } from '../agent/types'
 
 interface MissionDraft {
@@ -50,6 +59,9 @@ export function BoardCanvas() {
   const createTask = useBoardStore((s) => s.createTask)
   const [dropActive, setDropActive] = useState(false)
   const [missionDraft, setMissionDraft] = useState<MissionDraft | null>(null)
+  const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null)
+  // 범위(박스) 선택으로 동시에 선택된 노드 집합 (Task3)
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set())
   const fileInputRef = useRef<HTMLInputElement>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const { screenToFlowPosition } = useReactFlow()
@@ -92,6 +104,47 @@ export function BoardCanvas() {
     [missionDraft, createTask],
   )
 
+  // 빈 캔버스 더블클릭 → 그 위치에 노드 추가 (Task2)
+  const onPaneDoubleClick = useCallback(
+    (e: ReactMouseEvent) => {
+      const target = e.target as HTMLElement
+      // 노드/컨트롤이 아닌 캔버스 배경(pane)에서만 동작
+      if (!target.classList.contains('react-flow__pane')) return
+      const position = screenToFlowPosition({ x: e.clientX, y: e.clientY })
+      const ws = addWorkspace({ position })
+      selectWorkspace(ws.id)
+    },
+    [addWorkspace, screenToFlowPosition, selectWorkspace],
+  )
+
+  // 노드 우클릭 → 컨텍스트 메뉴 (Task4)
+  const onNodeContextMenu = useCallback(
+    (e: ReactMouseEvent, node: WorkspaceNodeType) => {
+      e.preventDefault()
+      setCtxMenu({
+        x: e.clientX,
+        y: e.clientY,
+        nodeId: node.id,
+        flowPosition: screenToFlowPosition({ x: e.clientX, y: e.clientY }),
+      })
+    },
+    [screenToFlowPosition],
+  )
+
+  // 빈 캔버스 우클릭 → 컨텍스트 메뉴 (Task4)
+  const onPaneContextMenu = useCallback(
+    (e: MouseEvent | ReactMouseEvent) => {
+      e.preventDefault()
+      setCtxMenu({
+        x: e.clientX,
+        y: e.clientY,
+        nodeId: null,
+        flowPosition: screenToFlowPosition({ x: e.clientX, y: e.clientY }),
+      })
+    },
+    [screenToFlowPosition],
+  )
+
   const handleImport = useCallback(
     async (files: Iterable<File>, position?: { x: number; y: number }) => {
       const { errors } = await importFilesToBoard(files, position)
@@ -122,14 +175,26 @@ export function BoardCanvas() {
         position: ws.position,
         width: ws.size.width,
         height: ws.size.height,
-        selected: ws.id === selectedWorkspaceId,
+        selected: selectedIds.has(ws.id) || ws.id === selectedWorkspaceId,
         data: { workspace: ws },
       })),
-    [workspaces, selectedWorkspaceId],
+    [workspaces, selectedWorkspaceId, selectedIds],
   )
 
   const onNodesChange = useCallback(
     (changes: NodeChange<WorkspaceNodeType>[]) => {
+      const hasSelectChange = changes.some((c) => c.type === 'select')
+      if (hasSelectChange) {
+        setSelectedIds((prev) => {
+          const next = new Set(prev)
+          for (const c of changes) {
+            if (c.type !== 'select') continue
+            if (c.selected) next.add(c.id)
+            else next.delete(c.id)
+          }
+          return next
+        })
+      }
       for (const change of changes) {
         if (change.type === 'position' && change.position) {
           moveWorkspace(change.id, change.position)
@@ -138,6 +203,7 @@ export function BoardCanvas() {
         } else if (change.type === 'remove') {
           removeWorkspace(change.id)
         } else if (change.type === 'select') {
+          // 인스펙터용 단일 선택은 store에 유지 (마지막 선택이 우선)
           if (change.selected) {
             selectWorkspace(change.id)
           } else if (useBoardStore.getState().selectedWorkspaceId === change.id) {
@@ -171,6 +237,12 @@ export function BoardCanvas() {
         proOptions={{ hideAttribution: true }}
         deleteKeyCode={['Backspace', 'Delete']}
         zoomOnDoubleClick={false}
+        onDoubleClick={onPaneDoubleClick}
+        onNodeContextMenu={onNodeContextMenu}
+        onPaneContextMenu={onPaneContextMenu}
+        selectionOnDrag
+        selectionMode={SelectionMode.Partial}
+        panOnDrag={[1, 2]}
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1.5} />
         <Controls />
@@ -270,6 +342,19 @@ export function BoardCanvas() {
           y={missionDraft.y}
           onConfirm={confirmMission}
           onCancel={() => setMissionDraft(null)}
+        />
+      )}
+
+      {ctxMenu && (
+        <CanvasContextMenu
+          state={ctxMenu}
+          onClose={() => setCtxMenu(null)}
+          onAddNode={(position) => {
+            const ws = addWorkspace({ position })
+            selectWorkspace(ws.id)
+          }}
+          onDeleteNode={(nodeId) => removeWorkspace(nodeId)}
+          onAgentToNode={(persona, nodeId) => onAgentDrop(persona, nodeId)}
         />
       )}
     </div>

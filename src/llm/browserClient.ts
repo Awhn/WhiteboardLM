@@ -28,13 +28,23 @@ function splitModel(model: string): { provider: string; id: string } {
  * 단일 system+user 프롬프트로 텍스트를 받아온다. 프로바이더별 REST를 직접 호출.
  * (브라우저에서 키가 그대로 전송되므로 로컬/프로토타입 용도)
  */
+/** 끝의 슬래시를 제거해 베이스 URL을 정규화 */
+function trimBase(url: string): string {
+  return url.replace(/\/+$/, '')
+}
+
 async function chat(system: string, user: string, maxTokens: number): Promise<string> {
-  const { model, apiKey } = getLLMConfig()
-  if (!apiKey) throw new ServerUnavailableError('로컬 모드: API 키가 없습니다.')
+  const { model, apiKey, endpoint } = getLLMConfig()
+  const base = trimBase(endpoint.trim())
   const { provider, id } = splitModel(model)
+  // 커스텀 엔드포인트(로컬 OpenAI 호환 서버 등)는 키가 없어도 호출 가능
+  if (!apiKey && !base) throw new ServerUnavailableError('로컬 모드: API 키가 없습니다.')
+
+  // 알 수 없는 프로바이더 + 엔드포인트가 있으면 OpenAI 호환 서버로 간주
+  const openaiCompatible = provider === 'openai' || (base !== '' && provider !== 'anthropic' && provider !== 'gemini')
 
   if (provider === 'anthropic') {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch(`${base || 'https://api.anthropic.com'}/v1/messages`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -54,10 +64,12 @@ async function chat(system: string, user: string, maxTokens: number): Promise<st
     return (data.content ?? []).filter((b: { type: string }) => b.type === 'text').map((b: { text: string }) => b.text).join('')
   }
 
-  if (provider === 'openai') {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  if (openaiCompatible) {
+    const headers: Record<string, string> = { 'content-type': 'application/json' }
+    if (apiKey) headers.authorization = `Bearer ${apiKey}`
+    const res = await fetch(`${base || 'https://api.openai.com'}/v1/chat/completions`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
+      headers,
       body: JSON.stringify({
         model: id,
         max_tokens: maxTokens,
@@ -74,7 +86,7 @@ async function chat(system: string, user: string, maxTokens: number): Promise<st
 
   if (provider === 'gemini') {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${id}:generateContent?key=${encodeURIComponent(apiKey)}`,
+      `${base || 'https://generativelanguage.googleapis.com'}/v1beta/models/${id}:generateContent?key=${encodeURIComponent(apiKey)}`,
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },

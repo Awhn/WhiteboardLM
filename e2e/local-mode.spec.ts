@@ -28,6 +28,23 @@ test('로컬 모드 토글이 백엔드 주소 입력을 숨기고 localStorage�
   expect(stored).toContain('"localMode":true')
 })
 
+test('로컬 모드에서 엔드포인트 입력이 노출되고 영속', async ({ page }) => {
+  await page.locator('[data-testid="right-rail"] [data-tab="settings"]').click()
+  // 기본(서버 모드)에서는 엔드포인트 입력이 숨겨짐
+  await expect(page.getByTestId('settings-endpoint')).toHaveCount(0)
+
+  await page.getByTestId('settings-localmode').click()
+  const ep = page.getByTestId('settings-endpoint')
+  await expect(ep).toBeVisible()
+  await ep.fill('http://localhost:11434')
+
+  await page.reload()
+  await page.locator('[data-testid="right-rail"] [data-tab="settings"]').click()
+  await expect(page.getByTestId('settings-endpoint')).toHaveValue('http://localhost:11434')
+  const stored = await page.evaluate(() => localStorage.getItem('whiteboardlm-llm-config'))
+  expect(stored).toContain('localhost:11434')
+})
+
 test('로컬 모드 + 키 없음 → 스텁 폴백으로 미션은 정상 동작', async ({ page }) => {
   // 로컬 모드 ON, 키는 입력하지 않음
   await page.locator('[data-testid="right-rail"] [data-tab="settings"]').click()

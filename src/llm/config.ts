@@ -10,6 +10,11 @@ export interface LLMConfig {
   apiKey: string
   /** 로컬 모드: 백엔드 없이 브라우저에서 프로바이더 API를 직접 호출 */
   localMode: boolean
+  /**
+   * 로컬 모드 커스텀 엔드포인트(베이스 URL). 비우면 프로바이더 공식 URL 사용.
+   * OpenAI 호환 로컬 서버(Ollama·LM Studio·vLLM·프록시 등)를 가리킬 수 있다.
+   */
+  endpoint: string
 }
 
 interface LLMConfigState extends LLMConfig {
@@ -25,6 +30,7 @@ export const useLLMConfig = create<LLMConfigState>()(
       model: '',
       apiKey: '',
       localMode: false,
+      endpoint: '',
       setConfig: (patch) => set(patch),
     }),
     { name: 'whiteboardlm-llm-config' },

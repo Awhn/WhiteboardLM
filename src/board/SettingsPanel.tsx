@@ -17,7 +17,7 @@ const MODEL_PRESETS = [
  * 백엔드 미설정 또는 키 미입력 시 스텁 LLM으로 동작한다.
  */
 export function SettingsPanel() {
-  const { apiBase, model, apiKey, localMode, setConfig } = useLLMConfig()
+  const { apiBase, model, apiKey, localMode, endpoint, setConfig } = useLLMConfig()
   const [showKey, setShowKey] = useState(false)
 
   const isCustomModel = !MODEL_PRESETS.some((p) => p.value === model)
@@ -86,6 +86,25 @@ export function SettingsPanel() {
               className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
               data-testid="settings-apibase"
             />
+          </label>
+        )}
+
+        {localMode && (
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold text-slate-600">
+              엔드포인트 (선택)
+            </span>
+            <input
+              value={endpoint}
+              onChange={(e) => setConfig({ endpoint: e.target.value.trim() })}
+              placeholder="http://localhost:11434 (Ollama·LM Studio 등)"
+              className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
+              data-testid="settings-endpoint"
+            />
+            <p className="mt-1 text-[10px] leading-snug text-slate-400">
+              비우면 프로바이더 공식 URL을 사용합니다. 로컬·프록시 서버를 가리키면 해당 베이스 URL로
+              호출하며, OpenAI 호환 서버는 모델을 <code>openai/모델명</code> 형식으로 지정하세요.
+            </p>
           </label>
         )}
 
