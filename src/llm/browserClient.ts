@@ -17,57 +17,115 @@ function stripFences(text: string): string {
   return (m ? m[1] : text).trim()
 }
 
-/** "provider/model" 분해 */
-function splitModel(model: string): { provider: string; id: string } {
-  const m = (model || DEFAULT_MODEL).trim()
+/** 끝의 슬래시를 제거해 베이스 URL을 정규화 */
+function trimBase(url: string): string {
+  return url.replace(/\/+$/, '')
+}
+
+/**
+ * "provider/model" 분해. 프로바이더 접두사가 없을 때:
+ *  - 커스텀 엔드포인트가 있으면 OpenAI 호환 서버(Ollama·LM Studio·vLLM 등)로 간주
+ *  - 없으면 Anthropic 기본
+ */
+function splitModel(model: string, hasEndpoint: boolean): { provider: string; id: string } {
+  const m = (model || (hasEndpoint ? '' : DEFAULT_MODEL)).trim()
   const i = m.indexOf('/')
-  return i === -1 ? { provider: 'anthropic', id: m } : { provider: m.slice(0, i), id: m.slice(i + 1) }
+  if (i === -1) return { provider: hasEndpoint ? 'openai' : 'anthropic', id: m }
+  return { provider: m.slice(0, i), id: m.slice(i + 1) }
+}
+
+/**
+ * 커스텀 베이스 URL에 API 경로를 안전하게 결합한다.
+ * 사용자가 베이스(`http://host:port`)·`/v1`·완전한 경로를 모두 줄 수 있으므로
+ * 이미 접미사가 있으면 그대로 두고, 없으면 보강한다.
+ */
+function joinPath(base: string, v1Suffix: string): string {
+  const suffix = v1Suffix.replace(/^\//, '') // "chat/completions" 또는 "messages"
+  if (base.endsWith(`/${suffix}`)) return base
+  if (base.endsWith('/v1')) return `${base}/${suffix}`
+  return `${base}/v1/${suffix}`
+}
+
+/**
+ * fetch 실패(특히 CORS 차단 → TypeError "Failed to fetch")를 사용자에게
+ * 의미 있는 메시지로 변환한다.
+ */
+async function callJson(url: string, init: RequestInit, label: string): Promise<unknown> {
+  let res: Response
+  try {
+    res = await fetch(url, init)
+  } catch (e) {
+    throw new Error(
+      `${label} 연결 실패(${url}). 로컬 모드는 브라우저에서 직접 호출하므로 대상 서버가 ` +
+        `CORS(Access-Control-Allow-Origin)를 허용해야 합니다. 예: Ollama는 OLLAMA_ORIGINS 설정 필요. ` +
+        `원인: ${e instanceof Error ? e.message : String(e)}`,
+      { cause: e },
+    )
+  }
+  if (!res.ok) throw new Error(`${label} 오류: HTTP ${res.status} ${await res.text().catch(() => '')}`)
+  return res.json()
 }
 
 /**
  * 단일 system+user 프롬프트로 텍스트를 받아온다. 프로바이더별 REST를 직접 호출.
  * (브라우저에서 키가 그대로 전송되므로 로컬/프로토타입 용도)
  */
-/** 끝의 슬래시를 제거해 베이스 URL을 정규화 */
-function trimBase(url: string): string {
-  return url.replace(/\/+$/, '')
-}
-
 async function chat(system: string, user: string, maxTokens: number): Promise<string> {
   const { model, apiKey, endpoint } = getLLMConfig()
   const base = trimBase(endpoint.trim())
-  const { provider, id } = splitModel(model)
+  const { provider, id } = splitModel(model, base !== '')
   // 커스텀 엔드포인트(로컬 OpenAI 호환 서버 등)는 키가 없어도 호출 가능
   if (!apiKey && !base) throw new ServerUnavailableError('로컬 모드: API 키가 없습니다.')
 
-  // 알 수 없는 프로바이더 + 엔드포인트가 있으면 OpenAI 호환 서버로 간주
-  const openaiCompatible = provider === 'openai' || (base !== '' && provider !== 'anthropic' && provider !== 'gemini')
-
   if (provider === 'anthropic') {
-    const res = await fetch(`${base || 'https://api.anthropic.com'}/v1/messages`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
+    const url = base ? joinPath(base, 'messages') : 'https://api.anthropic.com/v1/messages'
+    const data = (await callJson(
+      url,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: id,
+          max_tokens: maxTokens,
+          system,
+          messages: [{ role: 'user', content: user }],
+        }),
       },
-      body: JSON.stringify({
-        model: id,
-        max_tokens: maxTokens,
-        system,
-        messages: [{ role: 'user', content: user }],
-      }),
-    })
-    if (!res.ok) throw new Error(`Anthropic 오류: HTTP ${res.status} ${await res.text().catch(() => '')}`)
-    const data = await res.json()
-    return (data.content ?? []).filter((b: { type: string }) => b.type === 'text').map((b: { text: string }) => b.text).join('')
+      'Anthropic',
+    )) as { content?: { type: string; text: string }[] }
+    return (data.content ?? []).filter((b) => b.type === 'text').map((b) => b.text).join('')
   }
 
-  if (openaiCompatible) {
-    const headers: Record<string, string> = { 'content-type': 'application/json' }
-    if (apiKey) headers.authorization = `Bearer ${apiKey}`
-    const res = await fetch(`${base || 'https://api.openai.com'}/v1/chat/completions`, {
+  if (provider === 'gemini') {
+    const root = base || 'https://generativelanguage.googleapis.com'
+    const data = (await callJson(
+      `${root}/v1beta/models/${id}:generateContent?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: system }] },
+          contents: [{ parts: [{ text: user }] }],
+          generationConfig: { maxOutputTokens: maxTokens },
+        }),
+      },
+      'Gemini',
+    )) as { candidates?: { content?: { parts?: { text: string }[] } }[] }
+    return data.candidates?.[0]?.content?.parts?.map((p) => p.text).join('') ?? ''
+  }
+
+  // 그 외(openai/ 또는 커스텀 엔드포인트의 임의 모델) → OpenAI 호환 채팅 API
+  const url = base ? joinPath(base, 'chat/completions') : 'https://api.openai.com/v1/chat/completions'
+  const headers: Record<string, string> = { 'content-type': 'application/json' }
+  if (apiKey) headers.authorization = `Bearer ${apiKey}`
+  const data = (await callJson(
+    url,
+    {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -78,31 +136,10 @@ async function chat(system: string, user: string, maxTokens: number): Promise<st
           { role: 'user', content: user },
         ],
       }),
-    })
-    if (!res.ok) throw new Error(`OpenAI 오류: HTTP ${res.status} ${await res.text().catch(() => '')}`)
-    const data = await res.json()
-    return data.choices?.[0]?.message?.content ?? ''
-  }
-
-  if (provider === 'gemini') {
-    const res = await fetch(
-      `${base || 'https://generativelanguage.googleapis.com'}/v1beta/models/${id}:generateContent?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: system }] },
-          contents: [{ parts: [{ text: user }] }],
-          generationConfig: { maxOutputTokens: maxTokens },
-        }),
-      },
-    )
-    if (!res.ok) throw new Error(`Gemini 오류: HTTP ${res.status} ${await res.text().catch(() => '')}`)
-    const data = await res.json()
-    return data.candidates?.[0]?.content?.parts?.map((p: { text: string }) => p.text).join('') ?? ''
-  }
-
-  throw new Error(`로컬 모드 미지원 프로바이더: ${provider}`)
+    },
+    'OpenAI 호환',
+  )) as { choices?: { message?: { content?: string } }[] }
+  return data.choices?.[0]?.message?.content ?? ''
 }
 
 /**

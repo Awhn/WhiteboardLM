@@ -102,8 +102,12 @@ export function SettingsPanel() {
               data-testid="settings-endpoint"
             />
             <p className="mt-1 text-[10px] leading-snug text-slate-400">
-              비우면 프로바이더 공식 URL을 사용합니다. 로컬·프록시 서버를 가리키면 해당 베이스 URL로
-              호출하며, OpenAI 호환 서버는 모델을 <code>openai/모델명</code> 형식으로 지정하세요.
+              경로가 아닌 <b>베이스 URL</b>만 입력하세요 (예: <code>http://localhost:11434</code>).
+              <code>/v1/chat/completions</code>는 자동으로 붙습니다. 접두사 없는 모델명은 OpenAI 호환
+              API로 호출하며, <code>anthropic/…</code>·<code>gemini/…</code>를 쓰면 해당 형식으로 보냅니다.
+              <br />
+              ⚠️ 브라우저 직접 호출이라 대상 서버가 <b>CORS</b>를 허용해야 합니다(Ollama는{' '}
+              <code>OLLAMA_ORIGINS</code> 설정). 차단되면 로컬 모드를 끄고 백엔드 프록시를 사용하세요.
             </p>
           </label>
         )}
