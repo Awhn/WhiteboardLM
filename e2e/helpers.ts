@@ -58,19 +58,6 @@ export async function waitForPointer(page: Page, label: RegExp) {
   await expect(page.getByTestId('pointer-badge')).toHaveText(label, { timeout: 30_000 })
 }
 
-/** i번째 노드의 오른쪽 핸들을 j번째 노드의 왼쪽 핸들로 드래그해 엣지를 만든다 */
-export async function connectNodes(page: Page, i: number, j: number) {
-  const src = page.locator('.react-flow__node').nth(i).locator('.react-flow__handle-right')
-  const tgt = page.locator('.react-flow__node').nth(j).locator('.react-flow__handle-left')
-  const sb = await src.boundingBox()
-  const tb = await tgt.boundingBox()
-  if (!sb || !tb) throw new Error('handle not found')
-  await page.mouse.move(sb.x + sb.width / 2, sb.y + sb.height / 2)
-  await page.mouse.down()
-  await page.mouse.move(tb.x + tb.width / 2, tb.y + tb.height / 2, { steps: 10 })
-  await page.mouse.up()
-}
-
 /** 노드 i의 📍 버튼으로 포인터를 이동·실행한다 */
 export async function runPointerOnNode(page: Page, i: number) {
   await page

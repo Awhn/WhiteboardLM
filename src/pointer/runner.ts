@@ -2,7 +2,7 @@ import { useBoardStore } from '../board/boardStore'
 import { getLLMClient } from '../llm'
 import { BlockedError } from '../llm/errors'
 import { matchTool } from '../agent/tools'
-import { buildPointerContext } from './context'
+import { buildSpatialContext } from './context'
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -11,11 +11,10 @@ let running = false
 export const isPointerRunning = () => running
 
 /**
- * 포인터를 작업공간으로 이동시키고 체크리스트 실행을 트리거한다 (M6/M11/M12/M13/M14).
+ * 포인터를 작업공간으로 이동시키고 체크리스트 실행을 트리거한다 (v2: 공간 컨텍스트).
  *
  * 상태 머신: thinking → planning → (tool_use? → working → staged)* → waiting | done
- * - 실행 전 엣지 그래프에서 컨텍스트 수집 (reference: 정의만 / source: 전체 내용)
- * - context 타입 접근 권한이 없으면 [permission] 항목 자동 생성 후 waiting
+ * - 실행 전 공간 근접성(Relevant Neighborhood)으로 컨텍스트 수집 (명시적 엣지 없음)
  * - [AI] 항목: 제목과 매칭되는 도구가 있으면 tool_use로 먼저 실행
  * - 판단 불가(BlockedError) 시 [blocking] 항목 자동 생성 후 waiting
  * - [인간]/[승인] 등 그 외 태그: waiting으로 멈추고 사용자 행동을 기다린다
@@ -35,36 +34,8 @@ export async function runPointerAt(workspaceId: string): Promise<boolean> {
     setStatus('planning')
     await delay(500)
 
-    // M11: 포인터 기준 컨텍스트 수집 (M14: 권한 체크 포함)
-    const { workspaces, edges } = store.getState()
-    const context = buildPointerContext(workspaceId, workspaces, edges)
-
-    if (context.permissionNeeded.length > 0) {
-      const items = store.getState().checklistItems
-      for (const need of context.permissionNeeded) {
-        const alreadyOpen = items.some(
-          (i) =>
-            i.workspaceId === workspaceId &&
-            i.tag === 'permission' &&
-            i.relatedWorkspaceId === need.workspaceId &&
-            i.status !== 'committed',
-        )
-        if (alreadyOpen) continue
-        store.getState().addChecklistItem(
-          workspaceId,
-          `「${need.name}」 컨텍스트 접근 권한 필요`,
-          'permission',
-          {
-            relatedWorkspaceId: need.workspaceId,
-            assignee: '보드 소유자',
-            reason: `context 타입 작업공간 「${need.name}」에 연결된 엣지가 있지만 읽기 권한이 없습니다. 권한을 부여하거나 엣지를 비활성화하세요.`,
-          },
-        )
-        store.getState().logBoard(`[권한] 예외 생성: 「${need.name}」 접근 필요 (${wsName})`)
-      }
-      setStatus('waiting')
-      return true
-    }
+    // 공간 근접성 기반 컨텍스트 수집 (명시적 엣지 대신 거리)
+    const context = buildSpatialContext(workspaceId, store.getState().workspaces)
 
     for (;;) {
       const next = store

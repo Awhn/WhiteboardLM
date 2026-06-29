@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { connectNodes, defineWorkspace, generateChecklist, runPointerOnNode, waitForPointer } from './helpers'
+import { defineWorkspace, generateChecklist, runPointerOnNode, waitForPointer } from './helpers'
 
 /**
  * 외부 파일 가져오기 (Padlet 스타일) — 파일은 기본적으로 context 타입
@@ -96,24 +96,14 @@ test('지원하지 않는 형식은 안내 후 무시', async ({ page }) => {
   await expect(page.locator('.react-flow__node')).toHaveCount(0)
 })
 
-test('source 엣지로 연결된 CSV 내용이 AI 컨텍스트로 로드', async ({ page }) => {
-  // 작업 노드 + CSV 컨텍스트 노드
+test('가까이 둔 CSV 파일이 AI 공간 컨텍스트로 로드 (v2)', async ({ page }) => {
+  // 작업 노드 + CSV 파일 노드 (defineWorkspace/임포트가 인접 배치 → 공간 이웃)
   await defineWorkspace(page, '분석 리포트', '멤버 데이터 분석')
   await generateChecklist(page)
   await page.getByTestId('file-input').setInputFiles(CSV_FILE)
 
-  await connectNodes(page, 0, 1)
-  // 엣지를 source로 변경
-  await page.locator('.react-flow__edge').first().click({ force: true })
-  await page.getByRole('button', { name: '📥 소스' }).click()
-
+  // 명시적 엣지·권한 없이 공간 근접만으로 컨텍스트 포함
   await runPointerOnNode(page, 0)
-  await waitForPointer(page, /대기 중/)
-  // 권한 예외([permission]) → 권한 부여 후 재개
-  await page.locator('.react-flow__node').nth(0).click()
-  const permRow = page.locator('aside li', { hasText: '접근 권한 필요' })
-  await expect(permRow).toHaveCount(1)
-  await permRow.getByRole('button', { name: '권한 부여' }).click()
   await waitForPointer(page, /대기 중/)
 
   const content = await page
@@ -122,5 +112,4 @@ test('source 엣지로 연결된 CSV 내용이 AI 컨텍스트로 로드', async
     .getByTestId('content-view')
     .innerText()
   expect(content).toContain('members.csv')
-  expect(content).toContain('첨부 파일')
 })

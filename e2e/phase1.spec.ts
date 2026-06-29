@@ -101,9 +101,7 @@ test('반려 → 코멘트 → AI 재작업에 코멘트 반영', async ({ page 
   await expect(page.locator('.react-flow__node [data-testid="content-view"]')).toContainText('목차를 더 짧게')
 })
 
-test('작업공간 2개: 엣지 연결 + 독립 체크리스트 + 전체 체크리스트 드로어', async ({
-  page,
-}) => {
+test('작업공간 2개: 독립 체크리스트 + 전체 체크리스트 뷰', async ({ page }) => {
   await defineWorkspace(page, '자료 조사', '리포트용 자료 조사')
   await page.getByRole('button', { name: '📋 체크리스트 생성' }).click()
   await expect(page.locator('aside li').first()).toBeVisible()
@@ -112,19 +110,10 @@ test('작업공간 2개: 엣지 연결 + 독립 체크리스트 + 전체 체크�
   await page.getByRole('button', { name: '📋 체크리스트 생성' }).click()
   await expect(page.locator('aside li').first()).toBeVisible()
 
-  // 핸들 드래그로 엣지 연결
-  const src = page.locator('.react-flow__node').nth(0).locator('.react-flow__handle-right')
-  const tgt = page.locator('.react-flow__node').nth(1).locator('.react-flow__handle-left')
-  const sb = await src.boundingBox()
-  const tb = await tgt.boundingBox()
-  if (!sb || !tb) throw new Error('handle not found')
-  await page.mouse.move(sb.x + sb.width / 2, sb.y + sb.height / 2)
-  await page.mouse.down()
-  await page.mouse.move(tb.x + tb.width / 2, tb.y + tb.height / 2, { steps: 10 })
-  await page.mouse.up()
-  await expect(page.locator('.react-flow__edge')).toHaveCount(1)
+  // 두 노드 모두 캔버스에 존재 (v2: 명시적 엣지 없음, 공간 배치만)
+  await expect(page.locator('.react-flow__node')).toHaveCount(2)
 
-  // 전체 체크리스트 드로어: 두 작업공간 그룹 모두 표시
+  // 전체 체크리스트 뷰: 두 작업공간 그룹 모두 표시
   await page.getByRole('button', { name: '📋 전체 체크리스트' }).first().click()
   await expect(page.locator('section')).toHaveCount(2)
   await expect(page.locator('section').first()).toContainText('자료 조사')

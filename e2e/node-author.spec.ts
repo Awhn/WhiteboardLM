@@ -9,31 +9,11 @@ test.beforeEach(async ({ page }) => {
   await page.reload()
 })
 
-test('사용자가 만든 노드는 human, 템플릿(AI 산출물)은 ai', async ({ page }) => {
+test('사용자가 만든 노드는 human 생성자로 표시', async ({ page }) => {
   await page.getByRole('button', { name: '+ 첫 작업공간 만들기' }).click()
   const node = page.locator('.react-flow__node').first()
   await expect(node.locator('[data-author="human"]')).toHaveCount(1)
   await expect(node).toContainText('👤 나')
-
-  // 콘텐츠를 채워 템플릿 노출
-  await node.getByTestId('content-view').dblclick()
-  await page.getByTestId('content-editor').fill('# 자료\n\n분석 대상')
-  await page.getByRole('button', { name: '저장', exact: true }).click()
-
-  // 엣지를 끌어 템플릿 드롭 → AI 노드 생성
-  const handle = node.locator('.react-flow__handle-right')
-  const box = await handle.boundingBox()
-  if (!box) throw new Error('handle')
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-  await page.mouse.down()
-  await page.mouse.move(760, 460, { steps: 8 })
-  await page.mouse.up()
-  await page.locator('[data-template-id="summary"]').click()
-
-  // 새로 생긴 노드는 AI 생성자
-  const aiNode = page.locator('.react-flow__node', { hasText: '요약:' })
-  await expect(aiNode.locator('[data-author="ai"]')).toHaveCount(1)
-  await expect(aiNode).toContainText('🤖 AI')
 })
 
 test('생성자 정보가 새로고침 후에도 유지', async ({ page }) => {

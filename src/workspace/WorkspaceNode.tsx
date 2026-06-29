@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Handle, NodeResizer, Position, type Node, type NodeProps } from '@xyflow/react'
+import { NodeResizer, type Node, type NodeProps } from '@xyflow/react'
 import type { Workspace } from './types'
 import { WORKSPACE_TYPE_CONFIG, canPointerEnter } from './typeConfig'
 import { kindOf } from './kinds/registry'
@@ -116,9 +116,6 @@ export function WorkspaceNode({ data, selected }: NodeProps<WorkspaceNodeType>) 
           editing={editing}
           onEditingChange={handleEditingChange}
         />
-
-        <Handle type="target" position={Position.Left} className="!h-3 !w-3 !bg-slate-400" />
-        <Handle type="source" position={Position.Right} className="!h-3 !w-3 !bg-slate-400" />
       </div>
     </div>
   )

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { connectNodes, defineWorkspace, generateChecklist, runPointerOnNode, waitForPointer } from './helpers'
+import { defineWorkspace, generateChecklist, runPointerOnNode, waitForPointer } from './helpers'
 
 /**
  * 노드 카인드 (M23/M24): 노트·코드·웹 노드를 캔버스에서 만들고,
@@ -69,22 +69,14 @@ test('비선언형 노드 사이드바엔 선언/체크리스트 대신 안내',
   ).toHaveCount(0)
 })
 
-test('코드 노드를 source 엣지로 연결하면 AI 컨텍스트로 로드', async ({ page }) => {
+test('가까이 둔 코드 노드가 AI 공간 컨텍스트로 로드 (v2)', async ({ page }) => {
   await defineWorkspace(page, '코드 리뷰', '연결된 코드를 리뷰')
   await generateChecklist(page)
-  await addKind(page, 'code')
-  // 코드 작성
+  await addKind(page, 'code') // 인접 배치 → 공간 이웃
   await page.locator('.cm-content').click()
   await page.keyboard.type('def add(a,b): return a+b')
 
-  // 코드 노드(컨텍스트) 접근 허용 — 권한 흐름을 피하기 위해 타입을 intermediate로
-  await page.locator('.react-flow__node').nth(1).click()
-  await page.locator('aside').getByRole('button', { name: '⚙️ 중간 작업' }).click()
-
-  await connectNodes(page, 1, 0) // 코드 → 리뷰
-  await page.locator('.react-flow__edge').first().click({ force: true })
-  await page.getByRole('button', { name: '📥 소스' }).click()
-
+  // 명시적 엣지·권한 없이 공간 근접만으로 컨텍스트 포함
   await runPointerOnNode(page, 0)
   await waitForPointer(page, /대기 중/)
   const content = await page
