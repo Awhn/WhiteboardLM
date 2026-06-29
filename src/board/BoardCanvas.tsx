@@ -55,7 +55,7 @@ export function BoardCanvas() {
   const selectWorkspace = useBoardStore((s) => s.selectWorkspace)
   const addEdge = useBoardStore((s) => s.addEdge)
   const removeEdge = useBoardStore((s) => s.removeEdge)
-  const toggleDrawer = useUIStore((s) => s.toggleDrawer)
+  const setRightTab = useUIStore((s) => s.setRightTab)
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [dropActive, setDropActive] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -349,13 +349,13 @@ export function BoardCanvas() {
               }}
             />
             <button
-              onClick={() => toggleDrawer('checklist')}
+              onClick={() => setRightTab('checklist')}
               className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100"
             >
               📋 전체 체크리스트
             </button>
             <button
-              onClick={() => toggleDrawer('log')}
+              onClick={() => setRightTab('log')}
               className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100"
             >
               🕘 로그

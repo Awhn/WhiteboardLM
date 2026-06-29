@@ -5,16 +5,13 @@ import type { LLMClient } from './types'
 let client: LLMClient | null = null
 
 /**
- * VITE_API_BASE가 설정되면 서버 프록시(LiteLLM 멀티 프로바이더)를 사용하고,
- * 키 미설정(503)·서버 오류 시 스텁으로 폴백한다. 미설정이면 항상 스텁. [6gmRFCwh9C5CQRWc]
+ * 항상 서버→스텁 폴백 클라이언트를 사용한다.
+ * ServerLLMClient가 설정(apiBase/model/apiKey)을 요청 시점에 읽으므로,
+ * 설정 패널에서 백엔드 주소·키를 입력하면 즉시 반영된다.
+ * apiBase 미설정 또는 키 미설정(503)·오류 시 스텁으로 폴백. [6gmRFCwh9C5CQRWc]
  */
 export function getLLMClient(): LLMClient {
-  if (!client) {
-    const base = import.meta.env.VITE_API_BASE as string | undefined
-    client = base
-      ? new FallbackLLMClient(new ServerLLMClient(base), new StubLLMClient())
-      : new StubLLMClient()
-  }
+  client ??= new FallbackLLMClient(new ServerLLMClient(), new StubLLMClient())
   return client
 }
 

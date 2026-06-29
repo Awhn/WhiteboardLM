@@ -130,8 +130,8 @@ test('작업공간 2개: 엣지 연결 + 독립 체크리스트 + 전체 체크�
   await expect(page.locator('section').first()).toContainText('자료 조사')
   await expect(page.locator('section').nth(1)).toContainText('최종 리포트')
 
-  // 행동 로그 탭
-  await page.getByRole('button', { name: '🕘 행동 로그' }).click()
+  // 행동 로그 탭 (우측 패널)
+  await page.getByRole('button', { name: '🕘 로그' }).click()
   await expect(page.getByText('아직 기록된 행동이 없습니다')).toHaveCount(0)
 })
 

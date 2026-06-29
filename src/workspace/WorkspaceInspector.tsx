@@ -10,24 +10,31 @@ import type { DynamicField, DynamicFieldType, WorkspaceType } from './types'
 let manualFieldCounter = 0
 
 /**
- * 우측 사이드바: 선택된 작업공간의 선언형 정의 + 체크리스트 통합.
- * 캔버스의 노드 윈도우는 콘텐츠(WYSIWYG)만 표시하고, 메타 작업은 모두 여기서 한다.
+ * 우측 패널의 "정의" 탭: 선택된 작업공간의 선언형 정의 + 체크리스트.
+ * 캔버스의 노드 윈도우는 콘텐츠(WYSIWYG)만 표시하고, 메타 작업은 여기서 한다.
  */
-export function WorkspaceSidebar() {
+export function WorkspaceInspector() {
   const workspace = useBoardStore((s) =>
     s.workspaces.find((w) => w.id === s.selectedWorkspaceId),
   )
   const updateWorkspace = useBoardStore((s) => s.updateWorkspace)
   const updateDeclaration = useBoardStore((s) => s.updateDeclaration)
   const setDynamicFieldValue = useBoardStore((s) => s.setDynamicFieldValue)
-  const selectWorkspace = useBoardStore((s) => s.selectWorkspace)
 
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [manualLabel, setManualLabel] = useState('')
   const [manualType, setManualType] = useState<DynamicFieldType>('text')
 
-  if (!workspace) return null
+  if (!workspace) {
+    return (
+      <div className="flex h-full items-center justify-center p-6 text-center text-xs leading-relaxed text-slate-400">
+        캔버스나 탐색기에서 노드를 선택하면
+        <br />
+        정의·콘텐츠 설정이 여기 표시됩니다.
+      </div>
+    )
+  }
 
   const kind = kindOf(workspace)
   const complete = isDeclarationComplete(workspace)
@@ -69,29 +76,20 @@ export function WorkspaceSidebar() {
     })
 
   return (
-    <aside className="flex h-full w-80 shrink-0 flex-col border-l border-slate-200 bg-white max-md:absolute max-md:right-0 max-md:top-0 max-md:z-30 max-md:shadow-2xl">
-      <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-bold text-slate-800">
-            {kind.declarative ? '선언형 정의' : `${kind.icon} ${kind.label}`}
-          </h2>
-          {kind.declarative && (
-            <span
-              className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                complete ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
-              }`}
-            >
-              {complete ? '✓ 정의 완료' : '정의 미완료'}
-            </span>
-          )}
-        </div>
-        <button
-          onClick={() => selectWorkspace(null)}
-          className="rounded px-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-          aria-label="패널 닫기"
-        >
-          ✕
-        </button>
+    <aside className="flex h-full w-full flex-col bg-white">
+      <header className="flex items-center gap-2 border-b border-slate-200 px-4 py-2.5">
+        <h2 className="text-sm font-bold text-slate-800">
+          {kind.declarative ? '선언형 정의' : `${kind.icon} ${kind.label}`}
+        </h2>
+        {kind.declarative && (
+          <span
+            className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+              complete ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+            }`}
+          >
+            {complete ? '✓ 정의 완료' : '정의 미완료'}
+          </span>
+        )}
       </header>
 
       <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">

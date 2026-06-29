@@ -4,7 +4,7 @@
 같은 런타임에서 다루기 위해 Next.js API Route 대신 FastAPI를 선택.
 """
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -165,20 +165,41 @@ def export_board(board_id: str, db: Session = Depends(get_db)) -> BoardStateDTO:
     )
 
 
+# 프런트 설정 패널이 보낸 모델·API 키 (서버 env보다 우선).
+# contextvar는 스레드 경계를 넘지 못하므로 엔드포인트 본문에서 직접 설정한다.
+def _ctx(x_llm_model: str | None, x_llm_api_key: str | None) -> None:
+    llm.set_request_context(x_llm_model, x_llm_api_key)
+
+
 @app.post("/api/llm/dynamic-fields")
-def dynamic_fields(req: GenerateFieldsRequest) -> list[dict]:
+def dynamic_fields(
+    req: GenerateFieldsRequest,
+    x_llm_model: str | None = Header(default=None),
+    x_llm_api_key: str | None = Header(default=None),
+) -> list[dict]:
+    _ctx(x_llm_model, x_llm_api_key)
     return llm.generate_dynamic_fields(req.name, req.type, req.purpose)
 
 
 @app.post("/api/llm/checklist")
-def checklist(req: GenerateChecklistRequest) -> list[str]:
+def checklist(
+    req: GenerateChecklistRequest,
+    x_llm_model: str | None = Header(default=None),
+    x_llm_api_key: str | None = Header(default=None),
+) -> list[str]:
+    _ctx(x_llm_model, x_llm_api_key)
     return llm.generate_checklist(
         req.name, req.type, req.purpose, [f.model_dump() for f in req.dynamicFields]
     )
 
 
 @app.post("/api/llm/execute")
-def execute(req: ExecuteItemRequest) -> dict:
+def execute(
+    req: ExecuteItemRequest,
+    x_llm_model: str | None = Header(default=None),
+    x_llm_api_key: str | None = Header(default=None),
+) -> dict:
+    _ctx(x_llm_model, x_llm_api_key)
     result, tool_trace = llm.execute_item(
         req.title, req.workspaceName, req.purpose, req.comment, req.context, req.toolResult
     )

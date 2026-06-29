@@ -8,6 +8,7 @@ LLM_MODEL env로 프로바이더/모델 선택 (LiteLLM 모델 문자열):
 프로바이더와 무관하게 동일한 루프로 동작한다 (tools.py 레지스트리).
 """
 
+import contextvars
 import json
 import os
 import re
@@ -29,30 +30,52 @@ PROVIDER_KEY_ENV = {
     "azure": "AZURE_API_KEY",
 }
 
+# 요청별 오버라이드 (프런트 설정 패널 → X-LLM-Model / X-LLM-Api-Key 헤더)
+_model_override: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "model_override", default=None
+)
+_api_key: contextvars.ContextVar[str | None] = contextvars.ContextVar("api_key", default=None)
+
+
+def set_request_context(model: str | None, api_key: str | None) -> None:
+    """엔드포인트에서 요청 헤더 기준으로 매 요청 설정 (없으면 None으로 리셋)."""
+    _model_override.set(model or None)
+    _api_key.set(api_key or None)
+
 
 def current_model() -> str:
-    # 구버전 env(ANTHROPIC_MODEL) 호환
-    legacy = os.environ.get("ANTHROPIC_MODEL")
+    override = _model_override.get()
+    if override:
+        return override
+    legacy = os.environ.get("ANTHROPIC_MODEL")  # 구버전 env 호환
     return os.environ.get("LLM_MODEL") or (f"anthropic/{legacy}" if legacy else DEFAULT_MODEL)
 
 
 def ensure_provider_key() -> str:
-    """선택된 모델의 프로바이더 키가 없으면 503 → 프런트 스텁 폴백."""
+    """선택된 모델의 프로바이더 키가 없으면 503 → 프런트 스텁 폴백.
+
+    사용자가 헤더로 키를 제공하면(요청 컨텍스트) env 검사를 건너뛴다.
+    """
     model = current_model()
     try:
         _, provider, *_ = litellm.get_llm_provider(model)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"알 수 없는 모델 '{model}': {e}") from e
+    if _api_key.get():
+        return model
     key_env = PROVIDER_KEY_ENV.get(provider)
     if key_env and not os.environ.get(key_env):
         raise HTTPException(
             status_code=503,
-            detail=f"{key_env}가 설정되지 않았습니다 (모델: {model}). 프런트엔드 스텁으로 폴백하세요.",
+            detail=f"{key_env}가 설정되지 않았습니다 (모델: {model}). 설정 패널에서 키를 입력하거나 스텁으로 폴백하세요.",
         )
     return model
 
 
 def _completion(messages: list[dict], **kwargs) -> litellm.ModelResponse:
+    api_key = _api_key.get()
+    if api_key:
+        kwargs.setdefault("api_key", api_key)
     return litellm.completion(model=current_model(), messages=messages, **kwargs)
 
 

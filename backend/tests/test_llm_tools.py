@@ -117,6 +117,27 @@ def test_503_names_required_key_per_provider(monkeypatch):
     assert "GEMINI_API_KEY" in res.json()["detail"]
 
 
+def test_header_api_key_skips_env_503(monkeypatch):
+    """X-LLM-Api-Key 헤더를 주면 env 키가 없어도 503이 아니라 실제 호출 경로로 가고,
+    키·모델이 litellm.completion에 그대로 전달된다."""
+    captured = {}
+
+    def fake_litellm_completion(model, messages, **kwargs):
+        captured["api_key"] = kwargs.get("api_key")
+        captured["model"] = model
+        return _msg(content="[]")
+
+    monkeypatch.setattr(llm.litellm, "completion", fake_litellm_completion)
+    res = client.post(
+        "/api/llm/dynamic-fields",
+        json={"name": "a", "type": "output", "purpose": "b"},
+        headers={"X-LLM-Api-Key": "user-key", "X-LLM-Model": "openai/gpt-4o-mini"},
+    )
+    assert res.status_code == 200
+    assert captured["api_key"] == "user-key"
+    assert captured["model"] == "openai/gpt-4o-mini"
+
+
 def test_strip_fences():
     assert llm._strip_fences('```json\n[{"a": 1}]\n```') == '[{"a": 1}]'
     assert llm._strip_fences('[{"a": 1}]') == '[{"a": 1}]'

@@ -1,29 +1,26 @@
 import { create } from 'zustand'
 
-export type DrawerTab = 'checklist' | 'log'
+/** 우측 통합 패널의 세로탭 */
+export type RightTab = 'inspector' | 'checklist' | 'log' | 'settings'
 
 interface UIState {
-  drawerOpen: boolean
-  drawerTab: DrawerTab
-  openDrawer: (tab: DrawerTab) => void
-  closeDrawer: () => void
-  /** 같은 탭으로 다시 누르면 닫고, 다른 탭이면 전환 */
-  toggleDrawer: (tab: DrawerTab) => void
   /** 좌측 탐색기(파일트리) 표시 여부 */
   explorerOpen: boolean
   toggleExplorer: () => void
+
+  /** 우측 통합 패널 */
+  rightTab: RightTab
+  rightCollapsed: boolean
+  setRightTab: (tab: RightTab) => void
+  toggleRightCollapsed: () => void
 }
 
-export const useUIStore = create<UIState>((set, get) => ({
-  drawerOpen: false,
-  drawerTab: 'checklist',
-  openDrawer: (tab) => set({ drawerOpen: true, drawerTab: tab }),
-  closeDrawer: () => set({ drawerOpen: false }),
-  toggleDrawer: (tab) => {
-    const { drawerOpen, drawerTab } = get()
-    if (drawerOpen && drawerTab === tab) set({ drawerOpen: false })
-    else set({ drawerOpen: true, drawerTab: tab })
-  },
+export const useUIStore = create<UIState>((set) => ({
   explorerOpen: true,
   toggleExplorer: () => set((s) => ({ explorerOpen: !s.explorerOpen })),
+
+  rightTab: 'inspector',
+  rightCollapsed: false,
+  setRightTab: (tab) => set({ rightTab: tab, rightCollapsed: false }),
+  toggleRightCollapsed: () => set((s) => ({ rightCollapsed: !s.rightCollapsed })),
 }))

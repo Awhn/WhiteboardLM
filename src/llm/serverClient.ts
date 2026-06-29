@@ -1,4 +1,5 @@
 import type { DynamicField } from '../workspace/types'
+import { getLLMConfig } from './config'
 import type {
   ExecuteItemInput,
   GenerateChecklistInput,
@@ -11,20 +12,34 @@ export class ServerUnavailableError extends Error {}
 
 let fieldCounter = 0
 
-/** FastAPI 프록시(M15, LiteLLM 멀티 프로바이더) 경유 LLM 클라이언트 */
+/**
+ * FastAPI 프록시(LiteLLM 멀티 프로바이더) 경유 LLM 클라이언트.
+ * 설정(apiBase/model/apiKey)을 요청 시점에 읽어 헤더로 전달한다.
+ * apiBase가 비어 있으면 ServerUnavailableError → 스텁 폴백.
+ */
 export class ServerLLMClient implements LLMClient {
-  private readonly base: string
-
-  constructor(base: string) {
-    this.base = base
-  }
-
   private async post<T>(path: string, body: unknown): Promise<T> {
-    const res = await fetch(`${this.base}${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
+    const { apiBase, model, apiKey } = getLLMConfig()
+    if (!apiBase) {
+      throw new ServerUnavailableError('백엔드 주소(apiBase)가 설정되지 않았습니다.')
+    }
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (model) headers['X-LLM-Model'] = model
+    if (apiKey) headers['X-LLM-Api-Key'] = apiKey
+
+    let res: Response
+    try {
+      res = await fetch(`${apiBase}${path}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+      })
+    } catch (e) {
+      // 네트워크 실패도 폴백 신호로 변환
+      throw new ServerUnavailableError(
+        `백엔드 연결 실패: ${e instanceof Error ? e.message : String(e)}`,
+      )
+    }
     if (res.status === 503) {
       const detail = (await res.json().catch(() => null))?.detail
       throw new ServerUnavailableError(detail ?? 'LLM 프로바이더 키가 설정되지 않았습니다.')
