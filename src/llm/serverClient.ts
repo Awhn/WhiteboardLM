@@ -48,6 +48,11 @@ export class ServerLLMClient implements LLMClient {
     return res.json() as Promise<T>
   }
 
+  async proposeMission(input: import('./types').ProposeMissionInput): Promise<string> {
+    const { mission } = await this.post<{ mission: string }>('/api/llm/mission', input)
+    return mission
+  }
+
   async generateDynamicFields(input: GenerateFieldsInput): Promise<DynamicField[]> {
     const fields = await this.post<Partial<DynamicField>[]>('/api/llm/dynamic-fields', input)
     return fields.map((f) => ({
@@ -73,37 +78,5 @@ export class ServerLLMClient implements LLMClient {
         ? `\n\n> 🔧 서버 도구 사용: ${toolTrace.map((t) => t.tool).join(', ')}`
         : ''
     return result + trace
-  }
-}
-
-/** 서버 호출 실패 시 스텁으로 폴백하는 래퍼 */
-export class FallbackLLMClient implements LLMClient {
-  private readonly primary: LLMClient
-  private readonly fallback: LLMClient
-
-  constructor(primary: LLMClient, fallback: LLMClient) {
-    this.primary = primary
-    this.fallback = fallback
-  }
-
-  private async withFallback<T>(call: (c: LLMClient) => Promise<T>): Promise<T> {
-    try {
-      return await call(this.primary)
-    } catch (e) {
-      console.warn('[llm] 서버 호출 실패 — 스텁으로 폴백:', e)
-      return call(this.fallback)
-    }
-  }
-
-  generateDynamicFields(input: GenerateFieldsInput) {
-    return this.withFallback((c) => c.generateDynamicFields(input))
-  }
-
-  generateChecklist(input: GenerateChecklistInput) {
-    return this.withFallback((c) => c.generateChecklist(input))
-  }
-
-  executeChecklistItem(input: ExecuteItemInput) {
-    return this.withFallback((c) => c.executeChecklistItem(input))
   }
 }

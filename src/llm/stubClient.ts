@@ -41,6 +41,11 @@ const DEFAULT_CHECKLIST = (purpose: string): string[] => [
  * 입력에 "!error"가 포함되면 의도적으로 실패한다 — 오류 폴백 테스트용 훅.
  */
 export class StubLLMClient implements LLMClient {
+  async proposeMission({ fallback }: { fallback: string }): Promise<string> {
+    await delay(300)
+    return fallback
+  }
+
   async generateDynamicFields({ purpose }: GenerateFieldsInput): Promise<DynamicField[]> {
     await delay(600)
     if (purpose.includes('!error')) {

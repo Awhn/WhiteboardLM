@@ -7,6 +7,7 @@ import type {
   GenerateChecklistInput,
   GenerateFieldsInput,
   LLMClient,
+  ProposeMissionInput,
 } from './types'
 
 /**
@@ -30,6 +31,9 @@ class RoutingLLMClient implements LLMClient {
     }
   }
 
+  proposeMission(input: ProposeMissionInput) {
+    return this.route((c) => c.proposeMission(input))
+  }
   generateDynamicFields(input: GenerateFieldsInput) {
     return this.route((c) => c.generateDynamicFields(input))
   }

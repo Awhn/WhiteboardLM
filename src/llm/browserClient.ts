@@ -98,6 +98,16 @@ async function chat(system: string, user: string, maxTokens: number): Promise<st
  * 백엔드 불필요. 서버 도구(코드 실행 등)는 미지원.
  */
 export class BrowserLLMClient implements LLMClient {
+  async proposeMission({ capability, anchorName, anchorContent, context }: import('./types').ProposeMissionInput): Promise<string> {
+    const text = await chat(
+      `당신은 다음 역량을 가진 에이전트다: ${capability} 주어진 노드와 주변 컨텍스트를 보고, ` +
+        '지금 수행하면 좋을 작업을 한국어 한 문장으로 제안한다. 따옴표·접두사·설명 없이 미션 문장만 출력.',
+      `대상 노드: ${anchorName}\n내용:\n${anchorContent.slice(0, 800)}\n\n주변 컨텍스트:\n${(context ?? '').slice(0, 800)}`,
+      256,
+    )
+    return text.trim().replace(/^["'「]|["'」]$/g, '')
+  }
+
   async generateDynamicFields({ name, purpose }: GenerateFieldsInput): Promise<DynamicField[]> {
     const text = await chat(
       '당신은 선언형 작업 정의 도우미다. 작업 정의에 필요한 입력 필드를 JSON 배열로만 출력한다. ' +

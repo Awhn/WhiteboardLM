@@ -14,6 +14,17 @@ export interface GenerateChecklistInput {
   dynamicFields: DynamicField[]
 }
 
+export interface ProposeMissionInput {
+  /** 페르소나 역량 설명 */
+  capability: string
+  anchorName: string
+  anchorContent: string
+  /** 공간 컨텍스트 텍스트 */
+  context?: string
+  /** LLM 미사용/실패 시 사용할 기본 제안 */
+  fallback: string
+}
+
 export interface ExecuteItemInput {
   title: string
   workspaceName: string
@@ -34,7 +45,9 @@ export interface ExecuteItemInput {
  * (Phase 2 M15에서 서버사이드 프록시로 이전 예정)
  */
 export interface LLMClient {
-  /** 목적 요약으로부터 선언형 정의의 동적 필드 목록을 생성 (M4) */
+  /** 에이전트 드롭 시 노드·컨텍스트로부터 미션 제안 (v2) */
+  proposeMission(input: ProposeMissionInput): Promise<string>
+  /** 목적 요약으로부터 선언형 정의의 동적 필드 목록을 생성 */
   generateDynamicFields(input: GenerateFieldsInput): Promise<DynamicField[]>
   /** 완료된 선언형 정의로부터 "[태그] 제목" 형식의 체크리스트 라인을 생성 (M5) */
   generateChecklist(input: GenerateChecklistInput): Promise<string[]>

@@ -19,12 +19,15 @@ import { KindAddMenu } from '../workspace/KindAddMenu'
 import { AgentDock } from '../agent/AgentDock'
 import { MissionBubble } from '../agent/MissionBubble'
 import { runTask } from '../agent/runner'
+import { buildSpatialContext } from '../pointer/context'
 import type { AgentPersona } from '../agent/types'
 
 interface MissionDraft {
   persona: AgentPersona
   nodeId: string
   anchorName: string
+  anchorContent: string
+  context: string
   x: number
   y: number
 }
@@ -53,7 +56,8 @@ export function BoardCanvas() {
 
   // 에이전트를 노드 위에 드롭하면 미션 말풍선을 띄운다
   const onAgentDrop = useCallback((persona: AgentPersona, nodeId: string) => {
-    const ws = useBoardStore.getState().workspaces.find((w) => w.id === nodeId)
+    const all = useBoardStore.getState().workspaces
+    const ws = all.find((w) => w.id === nodeId)
     if (!ws) return
     const nodeEl = document.querySelector(
       `.react-flow__node[data-id="${nodeId}"]`,
@@ -62,7 +66,15 @@ export function BoardCanvas() {
     const nb = nodeEl?.getBoundingClientRect()
     const x = nb && rect ? nb.left + nb.width / 2 - rect.left : 400
     const y = nb && rect ? nb.top - rect.top : 300
-    setMissionDraft({ persona, nodeId, anchorName: ws.name, x, y })
+    setMissionDraft({
+      persona,
+      nodeId,
+      anchorName: ws.name,
+      anchorContent: ws.content,
+      context: buildSpatialContext(nodeId, all).text,
+      x,
+      y,
+    })
   }, [])
 
   const confirmMission = useCallback(
@@ -252,6 +264,8 @@ export function BoardCanvas() {
         <MissionBubble
           persona={missionDraft.persona}
           anchorName={missionDraft.anchorName}
+          anchorContent={missionDraft.anchorContent}
+          context={missionDraft.context}
           x={missionDraft.x}
           y={missionDraft.y}
           onConfirm={confirmMission}

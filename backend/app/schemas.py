@@ -69,6 +69,14 @@ class BoardStateDTO(BaseModel):
     boardLog: list[dict] = Field(default_factory=list)
 
 
+class ProposeMissionRequest(BaseModel):
+    capability: str = ""
+    anchorName: str = ""
+    anchorContent: str = ""
+    context: str = ""
+    fallback: str = ""
+
+
 class GenerateFieldsRequest(BaseModel):
     name: str
     type: str = ""

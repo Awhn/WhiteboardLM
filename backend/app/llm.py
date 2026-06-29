@@ -85,6 +85,36 @@ def _strip_fences(text: str) -> str:
     return match.group(1).strip() if match else text.strip()
 
 
+def propose_mission(
+    capability: str, anchor_name: str, anchor_content: str, context: str, fallback: str
+) -> str:
+    ensure_provider_key()
+    try:
+        response = _completion(
+            [
+                {
+                    "role": "system",
+                    "content": (
+                        f"당신은 다음 역량을 가진 에이전트다: {capability} "
+                        "주어진 노드와 주변 컨텍스트를 보고, 지금 수행하면 좋을 작업을 "
+                        "한국어 한 문장으로 제안한다. 따옴표·접두사·설명 없이 미션 문장만 출력."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": f"대상 노드: {anchor_name}\n내용:\n{anchor_content[:800]}\n\n주변:\n{context[:800]}",
+                },
+            ],
+            max_tokens=256,
+        )
+        text = _text(response).strip().strip('"\'「」')
+        return text or fallback
+    except HTTPException:
+        raise
+    except Exception:
+        return fallback
+
+
 def generate_dynamic_fields(name: str, ws_type: str, purpose: str) -> list[dict]:
     ensure_provider_key()
     response = _completion(

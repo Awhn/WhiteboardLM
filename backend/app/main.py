@@ -15,6 +15,7 @@ from .schemas import (
     ExecuteItemRequest,
     GenerateChecklistRequest,
     GenerateFieldsRequest,
+    ProposeMissionRequest,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -169,6 +170,20 @@ def export_board(board_id: str, db: Session = Depends(get_db)) -> BoardStateDTO:
 # contextvar는 스레드 경계를 넘지 못하므로 엔드포인트 본문에서 직접 설정한다.
 def _ctx(x_llm_model: str | None, x_llm_api_key: str | None) -> None:
     llm.set_request_context(x_llm_model, x_llm_api_key)
+
+
+@app.post("/api/llm/mission")
+def mission(
+    req: ProposeMissionRequest,
+    x_llm_model: str | None = Header(default=None),
+    x_llm_api_key: str | None = Header(default=None),
+) -> dict:
+    _ctx(x_llm_model, x_llm_api_key)
+    return {
+        "mission": llm.propose_mission(
+            req.capability, req.anchorName, req.anchorContent, req.context, req.fallback
+        )
+    }
 
 
 @app.post("/api/llm/dynamic-fields")

@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { getPersona } from './personas'
+import { getLLMClient } from '../llm'
 import type { AgentPersona } from './types'
 
 /**
@@ -9,6 +10,8 @@ import type { AgentPersona } from './types'
 export function MissionBubble({
   persona,
   anchorName,
+  anchorContent,
+  context,
   x,
   y,
   onConfirm,
@@ -16,13 +19,34 @@ export function MissionBubble({
 }: {
   persona: AgentPersona
   anchorName: string
+  anchorContent: string
+  context: string
   x: number
   y: number
   onConfirm: (mission: string) => void
   onCancel: () => void
 }) {
   const p = getPersona(persona)
-  const [mission, setMission] = useState(p.missionHint(anchorName))
+  const fallback = p.missionHint(anchorName)
+  const [mission, setMission] = useState(fallback)
+  const [proposing, setProposing] = useState(true)
+  const editedRef = useRef(false)
+
+  // 마운트 시 AI 미션 제안 → 사용자가 아직 손대지 않았으면 교체
+  useEffect(() => {
+    let alive = true
+    getLLMClient()
+      .proposeMission({ capability: p.capability, anchorName, anchorContent, context, fallback })
+      .then((proposed) => {
+        if (alive && !editedRef.current && proposed.trim()) setMission(proposed.trim())
+      })
+      .catch(() => {})
+      .finally(() => alive && setProposing(false))
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div
@@ -34,7 +58,9 @@ export function MissionBubble({
         <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-slate-700">
           <span className="text-base">{p.icon}</span>
           {p.label}
-          <span className="ml-auto text-[10px] font-normal text-slate-400">미션 교정</span>
+          <span className="ml-auto text-[10px] font-normal text-slate-400">
+            {proposing ? '✨ 제안 중…' : '미션 교정'}
+          </span>
         </div>
         <p className="mb-1.5 text-[11px] leading-snug text-slate-500">
           이렇게 진행할게요. 필요하면 고쳐 주세요:
@@ -42,7 +68,10 @@ export function MissionBubble({
         <textarea
           autoFocus
           value={mission}
-          onChange={(e) => setMission(e.target.value)}
+          onChange={(e) => {
+            editedRef.current = true
+            setMission(e.target.value)
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && mission.trim()) {
               onConfirm(mission.trim())
@@ -68,7 +97,6 @@ export function MissionBubble({
           </button>
         </div>
       </div>
-      {/* 말풍선 꼬리 */}
       <div className="absolute left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 border-b border-r border-indigo-200 bg-white" />
     </div>
   )
