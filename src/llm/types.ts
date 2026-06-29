@@ -1,14 +1,15 @@
-import type { DynamicField, WorkspaceType } from '../workspace/types'
+import type { DynamicField } from '../workspace/types'
 
 export interface GenerateFieldsInput {
   name: string
-  type: WorkspaceType
+  /** 선택적 힌트 (v2에서는 미사용) */
+  type?: string
   purpose: string
 }
 
 export interface GenerateChecklistInput {
   name: string
-  type: WorkspaceType
+  type?: string
   purpose: string
   dynamicFields: DynamicField[]
 }

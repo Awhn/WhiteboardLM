@@ -19,7 +19,9 @@ class DeclarationDTO(BaseModel):
 class WorkspaceDTO(BaseModel):
     id: str
     name: str
-    type: str
+    type: str = ""  # (구) 역할 — v2에서 미사용, 호환을 위해 옵셔널
+    kind: str | None = None
+    author: str | None = None
     declaration: DeclarationDTO = Field(default_factory=DeclarationDTO)
     content: str = ""
     position: dict = Field(default_factory=dict)
@@ -69,13 +71,13 @@ class BoardStateDTO(BaseModel):
 
 class GenerateFieldsRequest(BaseModel):
     name: str
-    type: str
+    type: str = ""
     purpose: str
 
 
 class GenerateChecklistRequest(BaseModel):
     name: str
-    type: str
+    type: str = ""
     purpose: str
     dynamicFields: list[DynamicFieldDTO] = Field(default_factory=list)
 

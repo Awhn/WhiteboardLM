@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import type { NodeKind, Workspace, WorkspaceType } from '../types'
+import type { NodeKind, Workspace } from '../types'
 
 /** 노드 본문 컴포넌트가 받는 공통 props */
 export interface NodeBodyProps {
@@ -18,9 +18,7 @@ export interface NodeKindDefinition {
   label: string
   icon: string
   description: string
-  /** 생성 시 부여할 역할(type) 기본값 */
-  defaultType: WorkspaceType
-  /** 선언형 정의→체크리스트→포인터 실행에 참여하는가 (declarative만 true) */
+  /** (구) 선언형 실행 참여 여부 — v2에서는 항상 false (P4 잔재, 제거 예정) */
   declarative: boolean
   /** 사용자가 본문 내용을 바꿀 수 있는가 (컨텍스트·AI 잠금 판단에 사용) */
   editable: boolean

@@ -1,6 +1,3 @@
-/** 작업공간 타입: 무엇을 만들 것인가에 대한 역할 구분 */
-export type WorkspaceType = 'output' | 'context' | 'intermediate'
-
 export type DynamicFieldType = 'text' | 'select' | 'multiline' | 'number'
 
 /** 선언형 정의의 동적 필드 — 목적 입력 후 LLM이 자동 생성 (M4) */
@@ -41,8 +38,6 @@ export interface Workspace {
   author?: NodeAuthor
   /** 묵시적 파생 관계 (내부용, 캔버스에 엣지로 표시하지 않음) */
   derivedFrom?: string[]
-  /** 에이전트 그래프에서의 역할 (포인터 진입·엣지 의미론·권한) */
-  type: WorkspaceType
   /** 본문 표면·동작 (kind 레지스트리가 해석). 생략 시 attachment 유무로 유도 */
   kind?: NodeKind
   /** 카인드별 부가 데이터 (code: { language }, web: { url } 등) */

@@ -37,7 +37,7 @@ export async function importFilesToBoard(
       const attachment = await handler.parse(file)
       store.addWorkspace({
         name: file.name,
-        type: 'context',
+
         attachment,
         declaration: {
           purpose: `외부 ${handler.label} 파일: ${file.name}`,

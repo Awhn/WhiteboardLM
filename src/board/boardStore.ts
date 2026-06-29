@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Declaration, NodeKind, Workspace, WorkspaceType } from '../workspace/types'
-import { canPointerEnter } from '../workspace/typeConfig'
+import type { Declaration, NodeKind, Workspace } from '../workspace/types'
 import { getKind, resolveKind } from '../workspace/kinds/registry'
 import type { WorkspaceEdge, EdgeType } from '../edge/types'
 import type { Pointer, PointerStatus } from '../pointer/types'
@@ -171,11 +170,9 @@ export const useBoardStore = create<BoardState>()(
       ...partial,
       id: newId('ws'),
       kind,
-      // 명시 지정이 없으면 인간 생성으로 본다 (AI 생성은 러너/템플릿이 명시)
+      // 명시 지정이 없으면 인간 생성으로 본다 (AI 생성은 러너가 명시)
       author: partial?.author ?? 'human',
       name: partial?.name ?? `작업공간 ${count + 1}`,
-      // 카인드 기본 역할(type) 사용, 명시 지정 시 우선
-      type: partial?.type ?? kindDef.defaultType,
       // 새 작업공간이 기존 노드와 겹치지 않도록 가로로 펼쳐 배치
       position:
         partial?.position ?? { x: 80 + count * (DEFAULT_SIZE.width + 60), y: 80 + count * 40 },
@@ -186,18 +183,9 @@ export const useBoardStore = create<BoardState>()(
   },
 
   updateWorkspace: (id, patch) =>
-    set((s) => {
-      const workspaces = s.workspaces.map((w) => (w.id === id ? { ...w, ...patch } : w))
-      // 타입이 진입 불가로 바뀌면 그 위에 있던 포인터를 내보낸다
-      const evictPointer =
-        patch.type !== undefined &&
-        s.pointer.workspaceId === id &&
-        !canPointerEnter(patch.type)
-      return {
-        workspaces,
-        pointer: evictPointer ? { ...s.pointer, workspaceId: null } : s.pointer,
-      }
-    }),
+    set((s) => ({
+      workspaces: s.workspaces.map((w) => (w.id === id ? { ...w, ...patch } : w)),
+    })),
 
   updateDeclaration: (id, patch) =>
     set((s) => ({
@@ -360,10 +348,6 @@ export const useBoardStore = create<BoardState>()(
   removeEdge: (id) => set((s) => ({ edges: s.edges.filter((e) => e.id !== id) })),
 
   movePointer: (workspaceId) => {
-    if (workspaceId !== null) {
-      const target = get().workspaces.find((w) => w.id === workspaceId)
-      if (!target || !canPointerEnter(target.type)) return false
-    }
     set((s) => ({ pointer: { ...s.pointer, workspaceId } }))
     return true
   },
@@ -528,4 +512,3 @@ export const useBoardStore = create<BoardState>()(
   ),
 )
 
-export type { WorkspaceType }
