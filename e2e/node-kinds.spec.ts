@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test'
-import { defineWorkspace, generateChecklist, runPointerOnNode, waitForPointer } from './helpers'
+import { createNote, runMission } from './helpers'
 
 /**
- * 노드 카인드 (M23/M24): 노트·코드·웹 노드를 캔버스에서 만들고,
- * source 엣지로 연결하면 AI가 그 내용을 컨텍스트로 읽는다.
+ * 노드 카인드: 노트·코드·웹 노드를 캔버스에서 만들고,
+ * 가까이 두면 AI가 공간 컨텍스트로 읽는다 (v2).
  */
 
 test.beforeEach(async ({ page }) => {
@@ -20,8 +20,8 @@ async function addKind(page: import('@playwright/test').Page, kind: string) {
 test('카인드 추가 메뉴로 노트·코드·웹 노드 생성', async ({ page }) => {
   await addKind(page, 'note')
   await expect(page.locator('.react-flow__node')).toHaveCount(1)
-  // 노트는 컨텍스트 타입(기본) + 편집 토글 보유
-  await expect(page.locator('.react-flow__node').first()).toContainText('컨텍스트')
+  // 노드 헤더에 카인드 라벨 표시
+  await expect(page.locator('.react-flow__node').first()).toContainText('노트')
 
   await addKind(page, 'code')
   await expect(page.locator('.react-flow__node')).toHaveCount(2)
@@ -55,34 +55,28 @@ test('웹 노드: URL 임베드 → iframe 표시', async ({ page }) => {
   await expect(frame).toHaveAttribute('src', 'https://example.com')
 })
 
-test('비선언형 노드 사이드바엔 선언/체크리스트 대신 안내', async ({ page }) => {
+test('노드 사이드바엔 노드 정보 + Task 영역', async ({ page }) => {
   await addKind(page, 'note')
   await page.locator('.react-flow__node').first().click()
   const aside = page.locator('aside')
   await expect(aside.getByText('📝 노트')).toBeVisible()
-  // 선언형 전용 UI는 없음
+  await expect(aside.getByText('이 노드의 작업')).toBeVisible()
+  // 구 선언형 UI는 없음
   await expect(aside.getByRole('button', { name: /동적 필드 생성/ })).toHaveCount(0)
-  await expect(aside.getByText(/source 엣지로 연결하면/)).toBeVisible()
-  // 포인터 이동 버튼도 없음 (declarative 아님)
   await expect(
     page.locator('.react-flow__node').first().getByRole('button', { name: '포인터 이동' }),
   ).toHaveCount(0)
 })
 
-test('가까이 둔 코드 노드가 AI 공간 컨텍스트로 로드 (v2)', async ({ page }) => {
-  await defineWorkspace(page, '코드 리뷰', '연결된 코드를 리뷰')
-  await generateChecklist(page)
+test('가까이 둔 코드 노드가 에이전트 공간 컨텍스트로 로드 (v2)', async ({ page }) => {
+  await createNote(page, '# 코드 리뷰 대상')
   await addKind(page, 'code') // 인접 배치 → 공간 이웃
   await page.locator('.cm-content').click()
   await page.keyboard.type('def add(a,b): return a+b')
 
-  // 명시적 엣지·권한 없이 공간 근접만으로 컨텍스트 포함
-  await runPointerOnNode(page, 0)
-  await waitForPointer(page, /대기 중/)
-  const content = await page
-    .locator('.react-flow__node')
-    .nth(0)
-    .getByTestId('content-view')
-    .innerText()
-  expect(content).toContain('add(a,b)')
+  // 노트 노드 위에서 미션 실행 → 공간 근접만으로 코드가 컨텍스트에 포함
+  await runMission(page, 'reviewer', 0, '코드 검토')
+  await expect(
+    page.locator('.react-flow__node', { hasText: 'Reviewer' }).getByTestId('content-view'),
+  ).toContainText('add(a,b)', { timeout: 30_000 })
 })

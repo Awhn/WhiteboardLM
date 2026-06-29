@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { defineWorkspace, generateChecklist, runPointerOnNode, waitForPointer } from './helpers'
+import { createNote, runMission } from './helpers'
 
 /**
  * 외부 파일 가져오기 (Padlet 스타일) — 파일은 기본적으로 context 타입
@@ -38,7 +38,7 @@ test('📎 버튼으로 CSV 가져오기 → 컨텍스트 노드 + 테이블 뷰
 
   const node = page.locator('.react-flow__node').first()
   await expect(node).toContainText('members.csv')
-  await expect(node).toContainText('컨텍스트') // 기본 context 타입
+  await expect(node).toContainText('파일') // 파일 카인드
   // 테이블 뷰어: 헤더 + 데이터 행
   await expect(node.locator('th')).toHaveCount(2)
   await expect(node.locator('table')).toContainText('민수')
@@ -96,20 +96,15 @@ test('지원하지 않는 형식은 안내 후 무시', async ({ page }) => {
   await expect(page.locator('.react-flow__node')).toHaveCount(0)
 })
 
-test('가까이 둔 CSV 파일이 AI 공간 컨텍스트로 로드 (v2)', async ({ page }) => {
-  // 작업 노드 + CSV 파일 노드 (defineWorkspace/임포트가 인접 배치 → 공간 이웃)
-  await defineWorkspace(page, '분석 리포트', '멤버 데이터 분석')
-  await generateChecklist(page)
+test('가까이 둔 CSV 파일이 에이전트 공간 컨텍스트로 로드 (v2)', async ({ page }) => {
+  // 작업 노드 + CSV 파일 노드 (인접 배치 → 공간 이웃)
+  await createNote(page, '# 분석')
   await page.getByTestId('file-input').setInputFiles(CSV_FILE)
 
-  // 명시적 엣지·권한 없이 공간 근접만으로 컨텍스트 포함
-  await runPointerOnNode(page, 0)
-  await waitForPointer(page, /대기 중/)
+  // 노트 노드 위에서 미션 실행 → 공간 근접만으로 CSV가 컨텍스트에 포함
+  await runMission(page, 'summarizer', 0, '멤버 데이터 요약')
 
-  const content = await page
-    .locator('.react-flow__node')
-    .nth(0)
-    .getByTestId('content-view')
-    .innerText()
-  expect(content).toContain('members.csv')
+  await expect(
+    page.locator('.react-flow__node', { hasText: 'Summarizer' }).getByTestId('content-view'),
+  ).toContainText('members.csv', { timeout: 30_000 })
 })

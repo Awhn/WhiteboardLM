@@ -1,68 +1,53 @@
 import { expect, type Page } from '@playwright/test'
 
-/** 작업공간을 추가하고 선언형 정의를 완료한다 */
-export async function defineWorkspace(
-  page: Page,
-  name: string,
-  purpose: string,
-  type: '🎯 결과물' | '📚 컨텍스트' | '⚙️ 중간 작업' = '🎯 결과물',
-) {
+/** Post-it 노트 노드를 추가하고 (선택적으로) 내용을 채운다 */
+export async function createNote(page: Page, content?: string) {
   const before = await page.locator('.react-flow__node').count()
   await page
     .getByRole('button', { name: before === 0 ? '+ 첫 작업공간 만들기' : '+ 작업공간 추가' })
     .click()
-  await page.locator('.react-flow__node').last().click()
-  await expect(page.getByText('선언형 정의')).toBeVisible()
-  await page.locator('aside input').first().fill(name)
-  await page.getByRole('button', { name: type }).click()
-  await page.locator('aside textarea').first().fill(purpose)
-  await page.getByRole('button', { name: '✨ 동적 필드 생성' }).click()
-
-  if (type === '🎯 결과물') {
-    await expect(page.locator('aside').getByText('대상 독자')).toBeVisible()
-    await fillField(page, '대상 독자', '테스트 독자')
-    await page.locator('aside select').first().selectOption({ index: 1 })
-    await page.locator('aside input[type="number"]').fill('300')
-    await page.locator('aside textarea').nth(1).fill('테스트 핵심 내용')
-  } else if (type === '📚 컨텍스트') {
-    await expect(page.locator('aside').getByText('자료 출처 유형')).toBeVisible()
-    await page.locator('aside select').first().selectOption({ index: 1 })
-    await fillField(page, '핵심 키워드', '테스트 키워드')
-    await page.locator('aside textarea').nth(1).fill('테스트 자료 요약')
-  } else {
-    await expect(page.locator('aside').getByText('입력으로 받는 것')).toBeVisible()
-    await fillField(page, '입력으로 받는 것', '입력 A')
-    await fillField(page, '출력으로 넘기는 것', '출력 B')
-    await page.locator('aside select').first().selectOption({ index: 1 })
-    await page.locator('aside textarea').nth(1).fill('주의사항 없음')
+  await expect(page.locator('.react-flow__node')).toHaveCount(before + 1)
+  if (content) {
+    const node = page.locator('.react-flow__node').last()
+    await node.getByTestId('content-view').dblclick()
+    await page.getByTestId('content-editor').fill(content)
+    await page.getByRole('button', { name: '저장', exact: true }).click()
   }
-  await expect(page.locator('aside').getByText('✓ 정의 완료')).toBeVisible()
 }
 
-export async function fillField(page: Page, label: string, value: string) {
-  await page
-    .locator('aside')
-    .getByText(label)
-    .locator('..')
-    .locator('..')
-    .locator('input')
-    .fill(value)
+/** 카인드 추가 메뉴로 특정 종류의 노드를 만든다 */
+export async function addKind(page: Page, kind: string) {
+  await page.getByRole('button', { name: '노드 종류 선택' }).click()
+  await page.locator(`[data-testid="kind-add-menu"] [data-kind="${kind}"]`).click()
 }
 
-export async function generateChecklist(page: Page) {
-  await page.getByRole('button', { name: /체크리스트 생성|체크리스트 다시 생성/ }).click()
-  await expect(page.locator('aside li').first()).toBeVisible()
+/** dock의 persona 아이콘을 nodeIndex 노드 위로 포인터 드래그한다 */
+export async function dragAgentToNode(page: Page, persona: string, nodeIndex: number) {
+  const icon = page.locator(`[data-testid="agent-dock"] [data-persona="${persona}"]`)
+  const node = page.locator('.react-flow__node').nth(nodeIndex)
+  const ib = await icon.boundingBox()
+  const nb = await node.boundingBox()
+  if (!ib || !nb) throw new Error('bbox')
+  await page.mouse.move(ib.x + ib.width / 2, ib.y + ib.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(nb.x + nb.width / 2, nb.y + nb.height / 2, { steps: 12 })
+  await page.mouse.up()
 }
 
-export async function waitForPointer(page: Page, label: RegExp) {
-  await expect(page.getByTestId('pointer-badge')).toHaveText(label, { timeout: 30_000 })
-}
-
-/** 노드 i의 📍 버튼으로 포인터를 이동·실행한다 */
-export async function runPointerOnNode(page: Page, i: number) {
-  await page
-    .locator('.react-flow__node')
-    .nth(i)
-    .getByRole('button', { name: '포인터 이동' })
-    .click()
+/** 에이전트 드롭 → 미션 교정 → 실행. AI 파생 노드 생성까지 기다린다 */
+export async function runMission(
+  page: Page,
+  persona: string,
+  nodeIndex: number,
+  mission: string,
+) {
+  const aiBefore = await page.locator('.react-flow__node [data-author="ai"]').count()
+  await dragAgentToNode(page, persona, nodeIndex)
+  const input = page.getByTestId('mission-input')
+  await expect(input).toBeVisible()
+  await input.fill(mission)
+  await page.getByRole('button', { name: '▶ 실행' }).click()
+  await expect(page.locator('.react-flow__node [data-author="ai"]')).toHaveCount(aiBefore + 1, {
+    timeout: 30_000,
+  })
 }

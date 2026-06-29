@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { defineWorkspace, generateChecklist, runPointerOnNode, waitForPointer } from './helpers'
+import { createNote, runMission } from './helpers'
 
 /**
  * 작업공간 콘텐츠 직접 작성·편집 (텍스트/마크다운).
@@ -62,23 +62,23 @@ test('TXT 형식 전환 시 마크다운을 렌더링하지 않음', async ({ pa
   await expect(view.locator('h1')).toHaveCount(1)
 })
 
-test('사용자 작성 콘텐츠 위에 AI 실행 결과가 누적된다', async ({ page }) => {
-  await defineWorkspace(page, '공동 작업', '사용자+AI 협업 검증')
-  await generateChecklist(page)
+test('사용자 노드는 보존되고 AI 결과는 별도 노드에 누적된다 (v2)', async ({ page }) => {
+  await createNote(page, '## 사용자 메모\n\n먼저 적어둔 내용')
 
-  // 사용자가 먼저 작성
-  await page.getByTestId('content-view').dblclick()
-  await page.getByTestId('content-editor').fill('## 사용자 메모\n\n먼저 적어둔 내용')
-  await page.getByRole('button', { name: '저장', exact: true }).click()
+  // 에이전트 실행 → 인간 노드 보존 + AI 결과는 새 파생 노드
+  await runMission(page, 'writer', 0, '메모 정리')
 
-  // AI 실행 → 사용자 내용 보존 + AI 결과 추가
-  await runPointerOnNode(page, 0)
-  await waitForPointer(page, /대기 중/)
-  const view = page.getByTestId('content-view')
-  await expect(view).toContainText('먼저 적어둔 내용')
-  await expect(view).toContainText('스텁 출력')
+  // 인간 노드는 그대로
+  const human = page.locator('.react-flow__node', { hasText: '먼저 적어둔 내용' }).first()
+  await expect(human).toContainText('먼저 적어둔 내용')
+  await expect(human.locator('[data-author="human"]')).toHaveCount(1)
+
+  // AI 결과는 새 노드
+  await expect(
+    page.locator('.react-flow__node', { hasText: 'Writer' }).getByTestId('content-view'),
+  ).toContainText('스텁 출력', { timeout: 30_000 })
 
   // 행동 로그에 사용자 편집 기록
   await page.getByRole('button', { name: '🕘 로그' }).click()
-  await expect(page.getByText('사용자 편집: 공동 작업')).toBeVisible()
+  await expect(page.getByText(/사용자 편집/)).toBeVisible()
 })

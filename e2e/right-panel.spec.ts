@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { defineWorkspace } from './helpers'
+import { createNote } from './helpers'
 
 /** 우측 통합 패널 — 세로탭(정의/체크리스트/로그/설정) + API 설정 */
 
@@ -10,10 +10,11 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('세로탭으로 정의/체크리스트/로그/설정 전환', async ({ page }) => {
-  await defineWorkspace(page, '리포트', '리포트 작성')
+  await createNote(page)
+  await page.locator('.react-flow__node').first().click()
 
-  // 노드 선택 시 자동으로 정의 탭
-  await expect(page.locator('aside').getByText('선언형 정의')).toBeVisible()
+  // 노드 선택 시 자동으로 정의 탭 (노드 정보 표시)
+  await expect(page.locator('aside').getByText('이 노드의 작업')).toBeVisible()
 
   // 레일 탭으로 전환
   await page.locator('[data-testid="right-rail"] [data-tab="checklist"]').click()
@@ -50,12 +51,12 @@ test('설정 탭: API 키·모델 입력이 localStorage에 저장되어 새로�
 })
 
 test('다른 노드를 선택하면 어느 탭에 있든 자동으로 정의 탭으로 전환', async ({ page }) => {
-  await defineWorkspace(page, 'A', 'A 목적')
-  await defineWorkspace(page, 'B', 'B 목적') // B가 선택된 상태
+  await createNote(page)
+  await createNote(page) // 두 번째 노드 선택 상태
   // 설정 탭으로 이동
   await page.locator('[data-testid="right-rail"] [data-tab="settings"]').click()
   await expect(page.getByTestId('settings-panel')).toBeVisible()
-  // 다른 노드(A) 선택 → 정의 탭 자동 전환
+  // 다른 노드 선택 → 정의 탭 자동 전환
   await page.locator('.react-flow__node').first().click()
-  await expect(page.locator('aside').getByText('선언형 정의')).toBeVisible()
+  await expect(page.locator('aside').getByText('이 노드의 작업')).toBeVisible()
 })

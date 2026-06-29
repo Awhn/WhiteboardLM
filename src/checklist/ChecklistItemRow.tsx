@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useBoardStore } from '../board/boardStore'
-import { runPointerAt } from '../pointer/runner'
+import { runTask } from '../agent/runner'
 import { CHECKLIST_TAG_CONFIG } from './tagConfig'
 import type { ChecklistItem, ChecklistStatus } from './types'
 
@@ -17,15 +17,13 @@ const STATUS_ICON: Record<ChecklistStatus, string> = {
 }
 
 /**
- * 체크리스트 항목 한 줄 + 상태 전이 액션 (M7)
- * - staged: 승인(→committed+스냅샷) / 반려(코멘트→pending→AI 재작업)
- * - pending(비AI): 완료(→committed+스냅샷)
- * - committed: 복원(해당 스냅샷으로 되돌리기, M8)
+ * Task 체크리스트 항목 한 줄 (v2):
+ * - staged: 승인(→committed) / 반려(코멘트→pending→AI 재작업)
+ * - pending(비AI·blocking): 완료(→committed) → 대기 중이던 Task 재개
  */
 export function ChecklistItemRow({ item }: { item: ChecklistItem }) {
-  const approveChecklistItem = useBoardStore((s) => s.approveChecklistItem)
+  const setStatus = useBoardStore((s) => s.setChecklistItemStatus)
   const rejectChecklistItem = useBoardStore((s) => s.rejectChecklistItem)
-  const restoreSnapshot = useBoardStore((s) => s.restoreSnapshot)
 
   const [rejecting, setRejecting] = useState(false)
   const [comment, setComment] = useState('')
@@ -33,17 +31,15 @@ export function ChecklistItemRow({ item }: { item: ChecklistItem }) {
   const tagCfg = CHECKLIST_TAG_CONFIG[item.tag]
   const lastComment = item.comments.at(-1)
 
-  /** 액션 후 같은 작업공간에서 대기 중인 포인터를 재개 */
-  const resumePointer = (allowDone = false) => {
-    const { pointer } = useBoardStore.getState()
-    if (pointer.workspaceId !== item.workspaceId) return
-    if (pointer.status === 'waiting' || (allowDone && pointer.status === 'done')) {
-      void runPointerAt(item.workspaceId)
-    }
+  /** 항목 처리 후 대기 중이던 Task가 있으면 재개 */
+  const resumeTask = () => {
+    if (!item.taskId) return
+    const task = useBoardStore.getState().tasks.find((t) => t.id === item.taskId)
+    if (task && task.status === 'waiting') void runTask(task.id)
   }
 
   const handleComplete = () => {
-    if (approveChecklistItem(item.id)) resumePointer()
+    if (setStatus(item.id, 'committed')) resumeTask()
   }
 
   const handleReject = () => {
@@ -51,43 +47,7 @@ export function ChecklistItemRow({ item }: { item: ChecklistItem }) {
     if (rejectChecklistItem(item.id, comment.trim())) {
       setRejecting(false)
       setComment('')
-      resumePointer(true)
-    }
-  }
-
-  // M14: [permission] 항목 — 권한 부여 후 재개 또는 해당 엣지 비활성화
-  const handleGrantPermission = () => {
-    if (!item.relatedWorkspaceId) return
-    useBoardStore.getState().grantContextAccess(item.relatedWorkspaceId)
-    if (approveChecklistItem(item.id)) resumePointer()
-  }
-
-  const handleDisableEdges = () => {
-    const { edges, updateEdge, logBoard } = useBoardStore.getState()
-    const related = item.relatedWorkspaceId
-    if (!related) return
-    for (const e of edges) {
-      const connects =
-        (e.source === item.workspaceId && e.target === related) ||
-        (e.target === item.workspaceId && e.source === related)
-      if (connects && !e.disabled) updateEdge(e.id, { disabled: true })
-    }
-    logBoard(`[권한] 해당 엣지 비활성화 선택 — 「${item.title}」`)
-    if (approveChecklistItem(item.id)) resumePointer()
-  }
-
-  const handleRestore = () => {
-    const snapshot = useBoardStore
-      .getState()
-      .snapshots.filter((s) => s.checklistItemId === item.id)
-      .at(-1)
-    if (!snapshot) return
-    if (
-      window.confirm(
-        `「${item.title}」 committed 시점으로 되돌릴까요?\n이후 committed/staged 항목은 pending으로 전환됩니다.`,
-      )
-    ) {
-      restoreSnapshot(snapshot.id)
+      resumeTask()
     }
   }
 
@@ -122,37 +82,12 @@ export function ChecklistItemRow({ item }: { item: ChecklistItem }) {
               </button>
             </>
           )}
-          {item.status === 'pending' && item.tag === 'permission' && (
-            <>
-              <button
-                onClick={handleGrantPermission}
-                className="rounded bg-emerald-600 px-1.5 py-px text-[10px] font-medium text-white hover:bg-emerald-700"
-              >
-                권한 부여
-              </button>
-              <button
-                onClick={handleDisableEdges}
-                className="rounded bg-orange-500 px-1.5 py-px text-[10px] font-medium text-white hover:bg-orange-600"
-              >
-                엣지 비활성화
-              </button>
-            </>
-          )}
-          {item.status === 'pending' && item.tag !== 'AI' && item.tag !== 'permission' && (
+          {item.status === 'pending' && item.tag !== 'AI' && (
             <button
               onClick={handleComplete}
               className="rounded bg-emerald-600 px-1.5 py-px text-[10px] font-medium text-white hover:bg-emerald-700"
             >
               완료
-            </button>
-          )}
-          {item.status === 'committed' && (
-            <button
-              onClick={handleRestore}
-              title="이 시점 스냅샷으로 되돌리기"
-              className="rounded bg-slate-200 px-1.5 py-px text-[10px] font-medium text-slate-600 hover:bg-slate-300"
-            >
-              ⏪ 복원
             </button>
           )}
         </span>
@@ -164,8 +99,7 @@ export function ChecklistItemRow({ item }: { item: ChecklistItem }) {
 
       {lastComment && item.status === 'pending' && (
         <p className="mt-1 rounded bg-red-50 px-1.5 py-0.5 text-[10px] text-red-500">
-          {item.tag === 'blocking' || item.tag === 'permission' ? '사유' : '반려 코멘트'}:{' '}
-          {lastComment.text}
+          {item.tag === 'blocking' ? '사유' : '반려 코멘트'}: {lastComment.text}
         </p>
       )}
 

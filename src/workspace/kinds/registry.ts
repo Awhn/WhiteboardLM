@@ -9,22 +9,10 @@ import type { NodeKindDefinition } from './types'
  */
 export const NODE_KINDS: NodeKindDefinition[] = [
   {
-    id: 'declarative',
-    label: '선언형 작업',
-    icon: '🧠',
-    description: '목적을 선언하면 AI가 체크리스트로 실행하는 작업공간',
-    defaultType: 'intermediate',
-    declarative: true,
-    editable: true,
-    usesEditToggle: true,
-    getContextText: (ws) => (ws.content ? `[전체 내용]\n${ws.content}` : null),
-    Body: ContentBody,
-  },
-  {
     id: 'note',
     label: '노트',
     icon: '📝',
-    description: '직접 작성하는 마크다운/텍스트 문서',
+    description: '직접 작성하는 마크다운/텍스트 Post-it',
     defaultType: 'context',
     declarative: false,
     editable: true,
@@ -84,9 +72,10 @@ const DEFAULT_KIND = NODE_KINDS[0]
 /** 사용자가 캔버스에서 직접 만들 수 있는 카인드 (파일은 📎 임포트로만 생성) */
 export const CREATABLE_KINDS = NODE_KINDS.filter((k) => k.id !== 'file')
 
-/** 저장 데이터에 kind가 없으면 attachment 유무로 유도 (마이그레이션 호환) */
+/** 저장 데이터에 kind가 없으면 attachment 유무로 유도. declarative는 note로 강등(v2) */
 export function resolveKind(ws: Pick<Workspace, 'kind' | 'attachment'>): NodeKind {
-  return ws.kind ?? (ws.attachment ? 'file' : 'declarative')
+  const k = ws.kind ?? (ws.attachment ? 'file' : 'note')
+  return k === 'declarative' ? 'note' : k
 }
 
 export function getKind(id: NodeKind | undefined): NodeKindDefinition {

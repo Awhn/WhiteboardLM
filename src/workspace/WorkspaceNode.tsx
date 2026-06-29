@@ -1,45 +1,28 @@
 import { useState } from 'react'
 import { NodeResizer, type Node, type NodeProps } from '@xyflow/react'
 import type { Workspace } from './types'
-import { WORKSPACE_TYPE_CONFIG, canPointerEnter } from './typeConfig'
+import { WORKSPACE_TYPE_CONFIG } from './typeConfig'
 import { kindOf } from './kinds/registry'
 import { AUTHOR_CONFIG, authorOf } from './authorConfig'
-import { isDeclarationComplete } from './declaration'
-import { PointerBadge } from '../pointer/PointerBadge'
-import { runPointerAt } from '../pointer/runner'
-import { useBoardStore } from '../board/boardStore'
-import { POINTER_STATUS_CONFIG } from '../pointer/statusConfig'
 
 export type WorkspaceNodeType = Node<{ workspace: Workspace }, 'workspace'>
 
 /**
- * 보드 위의 작업공간 노드 윈도우 (드래그 이동 + 선택 시 리사이즈).
- * WYSIWYG 원칙: 본문에는 작업 결과 콘텐츠만 표시하며, AI와 사용자가 함께
- * 작성·편집한다 (더블클릭/✏️ → 마크다운·텍스트 에디터).
- * 정의·체크리스트 등 메타 작업은 우측 사이드바에서 수행.
+ * 보드 위의 Post-it 노드 (드래그 이동 + 선택 시 리사이즈).
+ * WYSIWYG: 본문에는 콘텐츠만 표시. 인간이 직접 편집(✏️)하거나,
+ * 하단 독의 에이전트가 이 노드를 컨텍스트로 새 노드를 만든다.
  */
 export function WorkspaceNode({ data, selected }: NodeProps<WorkspaceNodeType>) {
   const ws = data.workspace
   const config = WORKSPACE_TYPE_CONFIG[ws.type]
   const kind = kindOf(ws)
   const author = AUTHOR_CONFIG[authorOf(ws.author)]
-  const complete = isDeclarationComplete(ws)
   const [editing, setEditing] = useState(false)
 
-  // 포인터가 이 작업공간에서 실행 중이면 동시 수정 충돌을 막기 위해 편집 잠금
-  const pointerBusy = useBoardStore(
-    (s) =>
-      s.pointer.workspaceId === ws.id && POINTER_STATUS_CONFIG[s.pointer.status].active,
-  )
-
-  const handleEditingChange = (next: boolean) => {
-    if (next && pointerBusy) return
-    setEditing(next)
-  }
+  const handleEditingChange = (next: boolean) => setEditing(next)
 
   return (
     <div className="relative h-full">
-      <PointerBadge workspaceId={ws.id} />
       <NodeResizer
         isVisible={selected}
         minWidth={240}
@@ -65,48 +48,22 @@ export function WorkspaceNode({ data, selected }: NodeProps<WorkspaceNodeType>) 
           </span>
           <span className="truncate text-sm font-semibold text-slate-800">{ws.name}</span>
           <span
-            className="shrink-0 text-[10px]"
-            title={complete ? '정의 완료' : '정의 미완료'}
-          >
-            {complete ? '✅' : ''}
-          </span>
-          <span
             className={`ml-auto shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${config.badgeClass}`}
-            title={config.description}
+            title={kind.description}
           >
-            {config.icon} {config.label}
+            {kind.icon} {kind.label}
           </span>
           {kind.usesEditToggle && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              handleEditingChange(!editing)
-            }}
-            disabled={pointerBusy}
-            title={
-              pointerBusy
-                ? 'AI 작업 중에는 편집할 수 없습니다'
-                : editing
-                  ? '편집 종료'
-                  : '콘텐츠 직접 편집'
-            }
-            aria-label="콘텐츠 편집"
-            className="nodrag shrink-0 rounded px-1 text-xs hover:bg-white/60 disabled:opacity-40"
-          >
-            ✏️
-          </button>
-          )}
-          {kind.declarative && canPointerEnter(ws.type) && (
             <button
               onClick={(e) => {
                 e.stopPropagation()
-                void runPointerAt(ws.id)
+                handleEditingChange(!editing)
               }}
-              title="포인터를 여기로 이동하고 체크리스트 실행"
-              aria-label="포인터 이동"
+              title={editing ? '편집 종료' : '콘텐츠 직접 편집'}
+              aria-label="콘텐츠 편집"
               className="nodrag shrink-0 rounded px-1 text-xs hover:bg-white/60"
             >
-              📍
+              ✏️
             </button>
           )}
         </header>
