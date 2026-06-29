@@ -37,12 +37,7 @@ export async function importFilesToBoard(
       const attachment = await handler.parse(file)
       store.addWorkspace({
         name: file.name,
-
         attachment,
-        declaration: {
-          purpose: `외부 ${handler.label} 파일: ${file.name}`,
-          dynamicFields: [],
-        },
         // 여러 파일을 동시에 떨어뜨리면 살짝 어긋나게 배치
         position: position && {
           x: position.x + imported * 40,

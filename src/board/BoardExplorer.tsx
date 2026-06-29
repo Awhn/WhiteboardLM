@@ -17,7 +17,6 @@ export function BoardExplorer() {
   // 원본 배열을 선택해 useMemo로 가공 (셀렉터에서 새 객체 생성 시 무한 리렌더 방지)
   const workspaces = useBoardStore((s) => s.workspaces)
   const selectedId = useBoardStore((s) => s.selectedWorkspaceId)
-  const pointerId = useBoardStore((s) => s.pointer.workspaceId)
   const selectWorkspace = useBoardStore((s) => s.selectWorkspace)
   const { setCenter } = useReactFlow()
 
@@ -114,7 +113,6 @@ export function BoardExplorer() {
                       title={AUTHOR_CONFIG[authorOf(n.author)].label}
                     />
                     <span className="min-w-0 flex-1 truncate">{n.name}</span>
-                    {n.id === pointerId && <span className="shrink-0 text-[10px]">📍</span>}
                   </button>
                 ))}
             </div>

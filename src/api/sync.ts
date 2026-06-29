@@ -14,10 +14,8 @@ export async function exportBoardToServer(): Promise<{ imported: boolean }> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       workspaces: s.workspaces,
-      edges: s.edges,
-      pointer: s.pointer,
       checklistItems: s.checklistItems,
-      snapshots: s.snapshots,
+      tasks: s.tasks,
       boardLog: s.boardLog,
     }),
   })
