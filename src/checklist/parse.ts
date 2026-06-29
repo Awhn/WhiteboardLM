@@ -22,8 +22,18 @@ export function parseChecklistLine(line: string): { tag: ChecklistTag; title: st
   return { tag: TAG_MAP[match[1]], title: match[2].trim() }
 }
 
-export function parseChecklistLines(lines: string[]): { tag: ChecklistTag; title: string }[] {
-  return lines
+/**
+ * LLM/서버 응답은 외부 입력이므로 형태를 신뢰하지 않는다.
+ * 배열이 아니면(문자열·객체 등) 안전하게 줄 배열로 정규화한다.
+ */
+export function toLines(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw.map((l) => String(l))
+  if (typeof raw === 'string') return raw.split('\n')
+  return []
+}
+
+export function parseChecklistLines(lines: unknown): { tag: ChecklistTag; title: string }[] {
+  return toLines(lines)
     .map(parseChecklistLine)
     .filter((item): item is { tag: ChecklistTag; title: string } => item !== null)
 }

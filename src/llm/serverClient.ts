@@ -1,4 +1,5 @@
 import type { DynamicField } from '../workspace/types'
+import { toLines } from '../checklist/parse'
 import { getLLMConfig } from './config'
 import type {
   ExecuteItemInput,
@@ -64,8 +65,9 @@ export class ServerLLMClient implements LLMClient {
     }))
   }
 
-  generateChecklist(input: GenerateChecklistInput): Promise<string[]> {
-    return this.post<string[]>('/api/llm/checklist', input)
+  async generateChecklist(input: GenerateChecklistInput): Promise<string[]> {
+    // 백엔드 응답은 외부 입력 — 배열이 아니어도 안전하게 정규화한다.
+    return toLines(await this.post<unknown>('/api/llm/checklist', input))
   }
 
   async executeChecklistItem(input: ExecuteItemInput): Promise<string> {
