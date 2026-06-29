@@ -3,6 +3,7 @@ import { Handle, NodeResizer, Position, type Node, type NodeProps } from '@xyflo
 import type { Workspace } from './types'
 import { WORKSPACE_TYPE_CONFIG, canPointerEnter } from './typeConfig'
 import { kindOf } from './kinds/registry'
+import { AUTHOR_CONFIG, authorOf } from './authorConfig'
 import { isDeclarationComplete } from './declaration'
 import { PointerBadge } from '../pointer/PointerBadge'
 import { runPointerAt } from '../pointer/runner'
@@ -21,6 +22,7 @@ export function WorkspaceNode({ data, selected }: NodeProps<WorkspaceNodeType>) 
   const ws = data.workspace
   const config = WORKSPACE_TYPE_CONFIG[ws.type]
   const kind = kindOf(ws)
+  const author = AUTHOR_CONFIG[authorOf(ws.author)]
   const complete = isDeclarationComplete(ws)
   const [editing, setEditing] = useState(false)
 
@@ -48,11 +50,19 @@ export function WorkspaceNode({ data, selected }: NodeProps<WorkspaceNodeType>) 
 
       <div
         className={`flex h-full flex-col overflow-hidden rounded-lg border bg-white shadow-md ${config.borderClass}`}
+        data-author={authorOf(ws.author)}
       >
+        {/* 생성자 액센트 바 (인간=중립 / AI=인디고) */}
+        <div className={`h-1 w-full shrink-0 ${author.accentClass}`} />
         <header
           className={`flex items-center gap-1.5 border-b px-3 py-2 ${config.headerClass}`}
         >
-          <span className="shrink-0 text-sm">{config.icon}</span>
+          <span
+            className={`shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold ${author.chipClass}`}
+            title={`${author.label}이(가) 만든 노드`}
+          >
+            {author.icon} {author.label}
+          </span>
           <span className="truncate text-sm font-semibold text-slate-800">{ws.name}</span>
           <span
             className="shrink-0 text-[10px]"

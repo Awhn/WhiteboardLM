@@ -31,9 +31,16 @@ export type ContentFormat = 'markdown' | 'plain'
  */
 export type NodeKind = 'declarative' | 'note' | 'file' | 'code' | 'web'
 
+/** 생성 주체 — 인간/AI 구분 (색상·편집 권한의 기준, v2) */
+export type NodeAuthor = 'human' | 'ai'
+
 export interface Workspace {
   id: string
   name: string
+  /** 생성 주체. 인간 노드는 AI가 수정 불가, AI 노드는 사용자·에이전트 모두 수정 가능 */
+  author?: NodeAuthor
+  /** 묵시적 파생 관계 (내부용, 캔버스에 엣지로 표시하지 않음) */
+  derivedFrom?: string[]
   /** 에이전트 그래프에서의 역할 (포인터 진입·엣지 의미론·권한) */
   type: WorkspaceType
   /** 본문 표면·동작 (kind 레지스트리가 해석). 생략 시 attachment 유무로 유도 */

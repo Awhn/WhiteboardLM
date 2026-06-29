@@ -107,6 +107,8 @@ export const useBoardStore = create<BoardState>()(
       ...partial,
       id: newId('ws'),
       kind,
+      // 명시 지정이 없으면 인간 생성으로 본다 (AI 생성은 러너/템플릿이 명시)
+      author: partial?.author ?? 'human',
       name: partial?.name ?? `작업공간 ${count + 1}`,
       // 카인드 기본 역할(type) 사용, 명시 지정 시 우선
       type: partial?.type ?? kindDef.defaultType,
@@ -428,14 +430,16 @@ export const useBoardStore = create<BoardState>()(
     }),
     {
       name: 'whiteboardlm-board',
-      version: 1,
-      // v0(카인드 도입 이전) 저장본: attachment 유무로 kind 유도
-      migrate: (persisted, version) => {
+      version: 2,
+      migrate: (persisted) => {
         const state = persisted as { workspaces?: Workspace[] } | undefined
-        if (version < 1 && state?.workspaces) {
+        if (state?.workspaces) {
           state.workspaces = state.workspaces.map((w) => ({
             ...w,
+            // v0→v1: attachment 유무로 kind 유도
             kind: w.kind ?? (w.attachment ? 'file' : 'declarative'),
+            // v1→v2: 생성자 미상은 인간으로 간주
+            author: w.author ?? 'human',
           }))
         }
         return persisted

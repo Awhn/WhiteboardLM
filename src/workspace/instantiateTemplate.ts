@@ -18,7 +18,13 @@ export async function instantiateTemplate(
   const template = WORKSPACE_TEMPLATES.find((t) => t.id === templateId)
   if (!source || !template) return null
 
-  const workspace = store.addWorkspace({ ...template.build(source), position })
+  // 템플릿(요약/비판/…)은 AI 산출물 → 생성자 ai + 원본에서 파생
+  const workspace = store.addWorkspace({
+    ...template.build(source),
+    position,
+    author: 'ai',
+    derivedFrom: [sourceId],
+  })
   store.addEdge(sourceId, workspace.id, template.edgeType)
   store.selectWorkspace(workspace.id)
   store.logBoard(`템플릿 생성: ${template.icon} ${template.label} ← ${source.name}`)

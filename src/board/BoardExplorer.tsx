@@ -3,6 +3,7 @@ import { useReactFlow } from '@xyflow/react'
 import { useBoardStore } from './boardStore'
 import { useUIStore } from './uiStore'
 import { NODE_KINDS, resolveKind } from '../workspace/kinds/registry'
+import { AUTHOR_CONFIG, authorOf } from '../workspace/authorConfig'
 import type { NodeKind } from '../workspace/types'
 
 /**
@@ -102,12 +103,16 @@ export function BoardExplorer() {
                     key={n.id}
                     onClick={() => focus(n.id)}
                     data-node-id={n.id}
-                    className={`flex w-full items-center gap-1.5 py-1 pl-7 pr-2 text-left text-[11px] transition-colors ${
+                    className={`flex w-full items-center gap-1.5 py-1 pl-6 pr-2 text-left text-[11px] transition-colors ${
                       n.id === selectedId
                         ? 'bg-blue-100 text-blue-800'
                         : 'text-slate-600 hover:bg-slate-50'
                     }`}
                   >
+                    <span
+                      className={`h-1.5 w-1.5 shrink-0 rounded-full ${AUTHOR_CONFIG[authorOf(n.author)].dotClass}`}
+                      title={AUTHOR_CONFIG[authorOf(n.author)].label}
+                    />
                     <span className="min-w-0 flex-1 truncate">{n.name}</span>
                     {n.id === pointerId && <span className="shrink-0 text-[10px]">📍</span>}
                   </button>
