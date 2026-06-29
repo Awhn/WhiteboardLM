@@ -19,7 +19,10 @@ export interface ActivityLogEntry {
 
 export interface ChecklistItem {
   id: string
+  /** 소유 작업공간 (선언형 경로, P3b에서 제거 예정) */
   workspaceId: string
+  /** 소유 Task (v2 에이전트 경로). 둘 중 하나가 채워진다 */
+  taskId?: string
   title: string
   tag: ChecklistTag
   status: ChecklistStatus

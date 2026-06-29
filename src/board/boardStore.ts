@@ -12,6 +12,8 @@ import type {
   ChecklistTag,
 } from '../checklist/types'
 import type { Snapshot } from './types'
+import type { Agent, AgentPersona, AgentStatus, Task } from '../agent/types'
+import { PERSONA_LIST } from '../agent/personas'
 
 const DEFAULT_SIZE = { width: 320, height: 220 }
 
@@ -29,12 +31,18 @@ const ALLOWED_TRANSITIONS: Record<ChecklistStatus, ChecklistStatus[]> = {
 /** 재실행 중이 아닌데 진행 중 상태로 복원되는 것을 막기 위한 목록 */
 const ACTIVE_POINTER_STATUSES: PointerStatus[] = ['thinking', 'planning', 'working', 'tool_use']
 
+const seedAgents = (): Agent[] =>
+  PERSONA_LIST.map((p) => ({ id: `agent-${p.id}`, persona: p.id, status: 'idle' as AgentStatus }))
+
 interface BoardState {
   workspaces: Workspace[]
   edges: WorkspaceEdge[]
   pointer: Pointer
   checklistItems: ChecklistItem[]
   snapshots: Snapshot[]
+  /** v2: 에이전트(페르소나) + 태스크 */
+  agents: Agent[]
+  tasks: Task[]
   /** 보드 전체 행동 로그 (우측 로그 패널, M8) */
   boardLog: ActivityLogEntry[]
   selectedWorkspaceId: string | null
@@ -57,8 +65,20 @@ interface BoardState {
     workspaceId: string,
     title: string,
     tag: ChecklistTag,
-    options?: { relatedWorkspaceId?: string; assignee?: string; reason?: string },
+    options?: { relatedWorkspaceId?: string; assignee?: string; reason?: string; taskId?: string },
   ) => ChecklistItem
+  /** Task 소유 체크리스트를 통째로 교체 (v2) */
+  setChecklistForTask: (taskId: string, items: { tag: ChecklistTag; title: string }[]) => void
+
+  /** v2 에이전트/태스크 */
+  setAgentStatus: (agentId: string, status: AgentStatus) => void
+  createTask: (input: {
+    persona: AgentPersona
+    anchorNodeId: string
+    mission: string
+    contextNodeIds: string[]
+  }) => Task
+  updateTask: (id: string, patch: Partial<Task>) => void
   /** 허용된 전이만 수행. 성공 여부 반환 */
   setChecklistItemStatus: (itemId: string, status: ChecklistStatus) => boolean
   appendItemActivity: (itemId: string, message: string) => void
@@ -92,8 +112,52 @@ export const useBoardStore = create<BoardState>()(
   pointer: { workspaceId: null, status: 'done' },
   checklistItems: [],
   snapshots: [],
+  agents: seedAgents(),
+  tasks: [],
   boardLog: [],
   selectedWorkspaceId: null,
+
+  setAgentStatus: (agentId, status) =>
+    set((s) => ({
+      agents: s.agents.map((a) => (a.id === agentId ? { ...a, status } : a)),
+    })),
+
+  createTask: ({ persona, anchorNodeId, mission, contextNodeIds }) => {
+    const task: Task = {
+      id: newId('task'),
+      agentId: `agent-${persona}`,
+      anchorNodeId,
+      mission,
+      contextNodeIds,
+      status: 'proposed',
+      createdAt: new Date().toISOString(),
+    }
+    set((s) => ({ tasks: [...s.tasks, task] }))
+    get().logBoard(`Task 생성: ${mission}`)
+    return task
+  },
+
+  updateTask: (id, patch) =>
+    set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)) })),
+
+  setChecklistForTask: (taskId, items) =>
+    set((s) => ({
+      checklistItems: [
+        ...s.checklistItems.filter((i) => i.taskId !== taskId),
+        ...items.map(({ tag, title }) => ({
+          id: newId('item'),
+          workspaceId: '',
+          taskId,
+          title,
+          tag,
+          status: 'pending' as const,
+          comments: [],
+          activityLog: [
+            { id: newId('log'), message: '체크리스트 자동 생성됨', createdAt: new Date().toISOString() },
+          ],
+        })),
+      ],
+    })),
 
   addWorkspace: (partial) => {
     const count = get().workspaces.length
@@ -209,6 +273,7 @@ export const useBoardStore = create<BoardState>()(
     const item: ChecklistItem = {
       id: newId('item'),
       workspaceId,
+      taskId: options?.taskId,
       title,
       tag,
       status: 'pending',
@@ -450,6 +515,7 @@ export const useBoardStore = create<BoardState>()(
         pointer: s.pointer,
         checklistItems: s.checklistItems,
         snapshots: s.snapshots,
+        tasks: s.tasks,
         boardLog: s.boardLog,
       }),
       onRehydrateStorage: () => (state) => {

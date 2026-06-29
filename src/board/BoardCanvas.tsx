@@ -16,6 +16,18 @@ import { WorkspaceNode, type WorkspaceNodeType } from '../workspace/WorkspaceNod
 import { importFilesToBoard } from '../files/importFiles'
 import { ACCEPT_ATTRIBUTE, SUPPORTED_LABEL } from '../files/registry'
 import { KindAddMenu } from '../workspace/KindAddMenu'
+import { AgentDock } from '../agent/AgentDock'
+import { MissionBubble } from '../agent/MissionBubble'
+import { runTask } from '../agent/runner'
+import type { AgentPersona } from '../agent/types'
+
+interface MissionDraft {
+  persona: AgentPersona
+  nodeId: string
+  anchorName: string
+  x: number
+  y: number
+}
 
 const nodeTypes = { workspace: WorkspaceNode }
 
@@ -32,9 +44,41 @@ export function BoardCanvas() {
   const removeWorkspace = useBoardStore((s) => s.removeWorkspace)
   const selectWorkspace = useBoardStore((s) => s.selectWorkspace)
   const setRightTab = useUIStore((s) => s.setRightTab)
+  const createTask = useBoardStore((s) => s.createTask)
   const [dropActive, setDropActive] = useState(false)
+  const [missionDraft, setMissionDraft] = useState<MissionDraft | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const wrapperRef = useRef<HTMLDivElement>(null)
   const { screenToFlowPosition } = useReactFlow()
+
+  // 에이전트를 노드 위에 드롭하면 미션 말풍선을 띄운다
+  const onAgentDrop = useCallback((persona: AgentPersona, nodeId: string) => {
+    const ws = useBoardStore.getState().workspaces.find((w) => w.id === nodeId)
+    if (!ws) return
+    const nodeEl = document.querySelector(
+      `.react-flow__node[data-id="${nodeId}"]`,
+    ) as HTMLElement | null
+    const rect = wrapperRef.current?.getBoundingClientRect()
+    const nb = nodeEl?.getBoundingClientRect()
+    const x = nb && rect ? nb.left + nb.width / 2 - rect.left : 400
+    const y = nb && rect ? nb.top - rect.top : 300
+    setMissionDraft({ persona, nodeId, anchorName: ws.name, x, y })
+  }, [])
+
+  const confirmMission = useCallback(
+    (mission: string) => {
+      if (!missionDraft) return
+      const task = createTask({
+        persona: missionDraft.persona,
+        anchorNodeId: missionDraft.nodeId,
+        mission,
+        contextNodeIds: [],
+      })
+      setMissionDraft(null)
+      void runTask(task.id)
+    },
+    [missionDraft, createTask],
+  )
 
   const handleImport = useCallback(
     async (files: Iterable<File>, position?: { x: number; y: number }) => {
@@ -95,6 +139,7 @@ export function BoardCanvas() {
 
   return (
     <div
+      ref={wrapperRef}
       className="relative h-full w-full"
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes('Files')) {
@@ -199,6 +244,19 @@ export function BoardCanvas() {
             📎 여기에 놓으면 노드로 추가됩니다 ({SUPPORTED_LABEL})
           </p>
         </div>
+      )}
+
+      <AgentDock onAgentDrop={onAgentDrop} />
+
+      {missionDraft && (
+        <MissionBubble
+          persona={missionDraft.persona}
+          anchorName={missionDraft.anchorName}
+          x={missionDraft.x}
+          y={missionDraft.y}
+          onConfirm={confirmMission}
+          onCancel={() => setMissionDraft(null)}
+        />
       )}
     </div>
   )
