@@ -15,12 +15,16 @@ services:
   backend:
     build: ./backend
     environment:
+      PORT: 8000
       DATABASE_URL: postgresql+psycopg2://whiteboardlm:whiteboardlm@db:5432/whiteboardlm
       # LiteLLM 모델 문자열로 프로바이더 선택 (anthropic/… · openai/… · gemini/…)
       LLM_MODEL: ${LLM_MODEL:-anthropic/claude-opus-4-8}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # 로컬(신뢰) 환경에선 코드 실행 도구 활성화 — 운영 기본은 비활성
+      ENABLE_RUN_PYTHON: ${ENABLE_RUN_PYTHON:-true}
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-http://localhost:5173}
     ports:
       - '8000:8000'
     depends_on:

@@ -4,8 +4,12 @@
 같은 런타임에서 다루기 위해 Next.js API Route 대신 FastAPI를 선택.
 """
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+import logging
+import os
+
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from . import llm, models
@@ -18,15 +22,43 @@ from .schemas import (
     ProposeMissionRequest,
 )
 
-Base.metadata.create_all(bind=engine)
+logger = logging.getLogger("whiteboardlm")
+
+# DB 미가용(예: DATABASE_URL이 가리키는 서버 다운)이어도 LLM 프록시는 동작해야 하므로
+# 부팅을 막지 않는다. 보드 영속화만 비활성화되고 컨테이너는 정상 기동한다.
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as e:  # noqa: BLE001
+    logger.warning("DB 초기화 실패 — 보드 영속화 비활성화: %s", e)
 
 app = FastAPI(title="WhiteboardLM API")
+
+# CORS 허용 오리진은 환경변수로 주입 (Cloud Run). 기본값: 로컬 개발 + 모든 *.pages.dev
+# CORS_ALLOW_ORIGINS: 콤마로 구분된 정확한 오리진 목록
+# CORS_ALLOW_ORIGIN_REGEX: 와일드카드(Cloudflare Pages 프리뷰 등)용 정규식
+_origins = [
+    o.strip()
+    for o in os.environ.get("CORS_ALLOW_ORIGINS", "http://localhost:5173").split(",")
+    if o.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=_origins,
+    allow_origin_regex=os.environ.get("CORS_ALLOW_ORIGIN_REGEX", r"https://.*\.pages\.dev"),
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 무인증·공개 엔드포인트 보호: 과도한 본문 크기를 413으로 거절 (메모리 폭주/DoS 완화)
+MAX_BODY_BYTES = int(os.environ.get("MAX_BODY_BYTES", str(10 * 1024 * 1024)))
+
+
+@app.middleware("http")
+async def _limit_body_size(request: Request, call_next):
+    cl = request.headers.get("content-length")
+    if cl and cl.isdigit() and int(cl) > MAX_BODY_BYTES:
+        return JSONResponse({"detail": "요청 본문이 너무 큽니다."}, status_code=413)
+    return await call_next(request)
 
 
 @app.get("/api/health")

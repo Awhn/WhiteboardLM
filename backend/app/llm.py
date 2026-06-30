@@ -19,7 +19,7 @@ from fastapi import HTTPException
 from .tools import TOOL_SPECS, run_tool
 
 DEFAULT_MODEL = "anthropic/claude-opus-4-8"
-MAX_TOOL_ITERATIONS = 5
+MAX_TOOL_ITERATIONS = int(os.environ.get("MAX_TOOL_ITERATIONS", "5"))
 
 # LiteLLM 프로바이더 → 필요한 API 키 env
 PROVIDER_KEY_ENV = {
@@ -83,6 +83,11 @@ def _strip_fences(text: str) -> str:
     """일부 모델이 JSON을 코드 펜스로 감싸는 경우 대비."""
     match = re.search(r"```(?:json)?\s*(.*?)```", text, re.DOTALL)
     return match.group(1).strip() if match else text.strip()
+
+
+def _text(response: litellm.ModelResponse) -> str:
+    """LiteLLM 응답에서 첫 메시지 텍스트를 안전하게 꺼낸다."""
+    return response.choices[0].message.content or ""
 
 
 def propose_mission(

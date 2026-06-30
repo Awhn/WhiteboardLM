@@ -11,12 +11,15 @@ os.environ.pop("OPENAI_API_KEY", None)
 os.environ.pop("LLM_MODEL", None)
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app import llm  # noqa: E402
+from app import tools  # noqa: E402
 from app.main import app  # noqa: E402
 from app.tools import run_tool  # noqa: E402
+
+# 코드 실행 도구는 기본 비활성(ENABLE_RUN_PYTHON) — 테스트에서는 명시적으로 등록한다.
+tools.register_run_python()
 
 client = TestClient(app)
 
@@ -136,6 +139,26 @@ def test_header_api_key_skips_env_503(monkeypatch):
     assert res.status_code == 200
     assert captured["api_key"] == "user-key"
     assert captured["model"] == "openai/gpt-4o-mini"
+
+
+def test_propose_mission_returns_llm_text(monkeypatch):
+    """미션 제안이 폴백이 아니라 LLM 출력을 반환하고, 둘러싼 따옴표를 제거한다."""
+    monkeypatch.setattr(
+        llm.litellm, "completion", lambda model, messages, **kw: _msg(content='"자료를 조사하라"')
+    )
+    res = client.post(
+        "/api/llm/mission",
+        json={
+            "capability": "조사",
+            "anchorName": "주제",
+            "anchorContent": "내용",
+            "context": "주변",
+            "fallback": "폴백미션",
+        },
+        headers={"X-LLM-Api-Key": "user-key", "X-LLM-Model": "openai/gpt-4o-mini"},
+    )
+    assert res.status_code == 200
+    assert res.json()["mission"] == "자료를 조사하라"
 
 
 def test_strip_fences():
